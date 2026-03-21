@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build: ./ml-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml-service:/app
+    environment:
+      - ENV=development
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3001}
+    networks:
+      - stocksage-network
+
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - PORT=3001
+      - ML_SERVICE_URL=http://ml-service:8000
+      - JWT_SECRET=${JWT_SECRET:-stocksage_secret_change_me}
+      - DB_PATH=/app/data/stocksage.db
+    depends_on:
+      - ml-service
+    networks:
+      - stocksage-network
+
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    depends_on:
+      - server
+    networks:
+      - stocksage-network
+
+networks:
+  stocksage-network:
+    driver: bridge

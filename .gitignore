@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+**/dist/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+server/.env
+ml-service/.env
+
+# Python
+ml-service/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Database — user data, not source code
+server/data/
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# TypeScript
+*.tsbuildinfo

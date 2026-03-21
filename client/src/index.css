@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-dark text-white font-sans antialiased;
+  }
+}
+
+.glass {
+  @apply bg-brand-card bg-opacity-80 backdrop-blur-md border border-brand-border;
+}
+
+.price-up { @apply text-brand-green; }
+.price-down { @apply text-brand-red; }
+
+input, select {
+  @apply bg-brand-dark border border-brand-border rounded px-3 py-2 focus:outline-none focus:border-brand-green;
+}
+
+button.primary {
+  @apply bg-brand-green text-brand-dark font-bold py-2 px-4 rounded hover:bg-opacity-90 transition-all;
+}
+
+button.secondary {
+  @apply border border-brand-border py-2 px-4 rounded hover:bg-brand-border transition-all;
+}
