@@ -1,9 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import bodyParser from 'body-parser';
 import cron from 'node-cron';
 import axios from 'axios';
+import bcrypt from 'bcrypt';
 import { initDb } from './db/init';
 import authRoutes from './routes/auth';
 import stockRoutes from './routes/stock';
@@ -19,6 +21,18 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 // Initialize Database
 initDb();
+
+// Seed demo account
+async function seedDemoAccount() {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@stocksage.com');
+    if (!existing) {
+        const hash = await bcrypt.hash('demo1234', 10);
+        const result = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run('demo@stocksage.com', hash);
+        db.prepare('INSERT INTO portfolio_snapshots (user_id, total_value) VALUES (?, ?)').run(result.lastInsertRowid, 100000.0);
+        console.log('Demo account created');
+    }
+}
+seedDemoAccount();
 
 app.use(helmet());
 app.use(cors());

@@ -5,9 +5,6 @@ import { toast } from 'sonner';
 import { TrendingUp, Mail, Lock, Loader2, Zap } from 'lucide-react';
 import api from '../lib/api';
 
-const DEMO_EMAIL = 'demo@stocksage.com';
-const DEMO_PASSWORD = 'demo1234';
-
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,12 +43,9 @@ const Login: React.FC = () => {
     setDemoLoading(true);
     setError('');
     try {
-      // Try to register the demo account — ignore "already exists" errors
-      await api.post('/auth/register', { email: DEMO_EMAIL, password: DEMO_PASSWORD }).catch(() => {});
-      // Always attempt login
-      const res = await api.post('/auth/login', { email: DEMO_EMAIL, password: DEMO_PASSWORD });
+      const res = await api.post('/auth/demo');
       setAuth(res.data.user, res.data.token);
-      toast.success('Logged in as Demo user');
+      toast.success('Welcome! Exploring as Demo user.');
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Demo login failed — is the server running?');

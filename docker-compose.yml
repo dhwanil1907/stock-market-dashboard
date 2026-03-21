@@ -20,6 +20,7 @@ services:
     volumes:
       - ./server:/app
       - /app/node_modules
+      - db-data:/app/data
     environment:
       - PORT=3001
       - ML_SERVICE_URL=http://ml-service:8000
@@ -47,3 +48,6 @@ services:
 networks:
   stocksage-network:
     driver: bridge
+
+volumes:
+  db-data:
