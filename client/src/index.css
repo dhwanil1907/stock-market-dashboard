@@ -2,9 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand-dark:   240 242 245;
+  --brand-card:   255 255 255;
+  --brand-border: 209 213 219;
+  --brand-text:   11 14 17;
+}
+
+.dark {
+  --brand-dark:   11 14 17;
+  --brand-card:   22 26 30;
+  --brand-border: 42 46 51;
+  --brand-text:   255 255 255;
+}
+
 @layer base {
   body {
-    @apply bg-brand-dark text-white font-sans antialiased;
+    @apply bg-brand-dark font-sans antialiased;
+    color: rgb(var(--brand-text));
   }
 }
 

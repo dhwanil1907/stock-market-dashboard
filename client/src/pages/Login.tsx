@@ -30,7 +30,7 @@ const Login: React.FC = () => {
         toast.success('Account created! Please sign in.');
       } else {
         setAuth(res.data.user, res.data.token);
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Authentication failed');
@@ -46,7 +46,7 @@ const Login: React.FC = () => {
       const res = await api.post('/auth/demo');
       setAuth(res.data.user, res.data.token);
       toast.success('Welcome! Exploring as Demo user.');
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Demo login failed — is the server running?');
     } finally {
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
         <div className="inline-flex items-center justify-center p-4 bg-brand-green bg-opacity-10 rounded-2xl text-brand-green mb-4">
           <TrendingUp size={40} />
         </div>
-        <h1 className="text-2xl font-bold">Welcome to StockSage</h1>
+        <h1 className="text-2xl font-bold">Welcome to TradeRookie</h1>
         <p className="text-gray-400 mt-2">{isRegister ? 'Create your paper trading account' : 'Sign in to your account'}</p>
       </div>
 

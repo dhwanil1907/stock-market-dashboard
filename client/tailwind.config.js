@@ -11,9 +11,9 @@ export default {
         brand: {
           green: '#00C896',
           red: '#FF4D4F',
-          dark: '#0B0E11',
-          card: '#161A1E',
-          border: '#2A2E33',
+          dark:   'rgb(var(--brand-dark) / <alpha-value>)',
+          card:   'rgb(var(--brand-card) / <alpha-value>)',
+          border: 'rgb(var(--brand-border) / <alpha-value>)',
         }
       },
       fontFamily: {

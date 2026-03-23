@@ -18,6 +18,22 @@ function isPredictRateLimited(userId: number): boolean {
     return false;
 }
 
+router.get('/quotes/batch', async (req, res) => {
+    const symbols = ((req.query.symbols as string) || '').split(',').filter(Boolean).slice(0, 25);
+    if (symbols.length === 0) return res.json([]);
+    try {
+        const results = await Promise.allSettled(
+            symbols.map(ticker => axios.get(`${ML_SERVICE_URL}/market/quote/${ticker.trim().toUpperCase()}`))
+        );
+        const quotes = results
+            .map((r, i) => r.status === 'fulfilled' ? { ...r.value.data, symbol: symbols[i].toUpperCase() } : null)
+            .filter(Boolean);
+        res.json(quotes);
+    } catch {
+        res.status(500).json({ error: 'Could not fetch quotes' });
+    }
+});
+
 router.get('/search', async (req, res) => {
     try {
         const response = await axios.get(`${ML_SERVICE_URL}/market/search`, { params: { q: req.query.q } });
@@ -27,7 +43,7 @@ router.get('/search', async (req, res) => {
     }
 });
 
-router.get('/sectors', async (req, res) => {
+router.get('/sectors', async (_req, res) => {
     try {
         const response = await axios.get(`${ML_SERVICE_URL}/market/sectors`);
         res.json(response.data);

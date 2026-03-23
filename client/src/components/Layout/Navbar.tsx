@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, TrendingUp, LogOut, Menu, X } from 'lucide-react';
+import { Search, TrendingUp, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { useThemeStore } from '../../stores/themeStore';
 import api from '../../lib/api';
 
 function formatCash(value: number): string {
@@ -11,7 +12,7 @@ function formatCash(value: number): string {
 }
 
 const NAV_LINKS = [
-  { to: '/', label: 'Market' },
+  { to: '/dashboard', label: 'Market' },
   { to: '/sectors', label: 'Sectors' },
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/watchlist', label: 'Watchlist' },
@@ -22,6 +23,7 @@ const NAV_LINKS = [
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
@@ -132,6 +134,13 @@ const Navbar: React.FC = () => {
                 <div className="text-xs text-brand-green font-mono">{formatCash(user.cash_balance ?? 0)}</div>
               </div>
               <button
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="p-2 text-gray-400 hover:text-white transition-colors hidden md:block"
+              >
+                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              <button
                 onClick={logout}
                 aria-label="Logout"
                 className="p-2 text-gray-400 hover:text-brand-red transition-colors hidden md:block"
@@ -169,6 +178,13 @@ const Navbar: React.FC = () => {
                 {label}
               </Link>
             ))}
+            <button
+              onClick={toggleTheme}
+              className="w-full text-left py-3 text-sm font-medium border-b border-brand-border/40 hover:text-white transition-colors flex items-center gap-2 text-gray-400"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </button>
             <button
               onClick={logout}
               className="w-full text-left py-3 text-sm font-medium text-brand-red hover:opacity-80 transition-colors flex items-center gap-2"
