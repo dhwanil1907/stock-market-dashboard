@@ -1,0 +1,12 @@
+{
+  "accuracy": 0.6316,
+  "precision": 0.7156,
+  "recall": 0.8432,
+  "f1": 0.7742,
+  "train_size": 1104,
+  "test_size": 247,
+  "train_start": "2018-03-27",
+  "train_end": "2022-06-17",
+  "test_start": "2022-07-29",
+  "test_end": "2023-07-10"
+}

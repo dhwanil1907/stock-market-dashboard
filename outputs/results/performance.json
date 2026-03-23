@@ -1,0 +1,7 @@
+{
+  "strategy_cagr": 0.4367,
+  "strategy_sharpe": 1.2715,
+  "strategy_max_drawdown": -0.2857,
+  "benchmark_cagr": 0.4968,
+  "benchmark_max_drawdown": -0.2857
+}
