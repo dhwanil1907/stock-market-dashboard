@@ -11,6 +11,7 @@ import TradeHistory from './pages/TradeHistory';
 import Alerts from './pages/Alerts';
 import Backtest from './pages/Backtest';
 import SectorHeatmap from './pages/SectorHeatmap';
+import Intel from './pages/Intel';
 import Login from './pages/Login';
 import { useThemeStore } from './stores/themeStore';
 import './index.css';
@@ -33,24 +34,25 @@ const App: React.FC = () => {
       <Toaster
         position="top-right"
         toastOptions={{
-          style: { background: '#1E2328', border: '1px solid #2A2E33', color: '#fff' },
+          style: { background: '#111418', border: '1px solid #1E2328', color: '#F9FAFB', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' },
         }}
       />
       <Routes>
-        {/* Landing — no Layout/Navbar */}
+        {/* Public — no layout */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
 
-        {/* App pages — wrapped in Layout */}
+        {/* App — sidebar layout */}
         <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<MarketOverview />} />
+          <Route path="/dashboard"  element={<MarketOverview />} />
           <Route path="/stock/:ticker" element={<StockDetail />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/history" element={<TradeHistory />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/backtest" element={<Backtest />} />
-          <Route path="/sectors" element={<SectorHeatmap />} />
+          <Route path="/sectors"    element={<SectorHeatmap />} />
+          <Route path="/portfolio"  element={<Portfolio />} />
+          <Route path="/watchlist"  element={<Watchlist />} />
+          <Route path="/history"    element={<TradeHistory />} />
+          <Route path="/alerts"     element={<Alerts />} />
+          <Route path="/backtest"   element={<Backtest />} />
+          <Route path="/intel"      element={<Intel />} />
         </Route>
       </Routes>
     </BrowserRouter>

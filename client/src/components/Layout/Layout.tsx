@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import TopBar from './TopBar';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -8,14 +9,29 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen pt-16">
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {children ?? <Outlet />}
-      </main>
-      <footer className="border-t border-brand-border mt-12 py-8 text-center text-sm text-gray-500">
-        <p>&copy; {new Date().getFullYear()} TradeRookie. Data powered by yfinance. For educational use only.</p>
-      </footer>
+    <div className="t-app">
+      <Sidebar />
+      <div className="t-main">
+        <TopBar />
+        <main className="t-content">
+          {children ?? <Outlet />}
+        </main>
+        <footer className="t-statusbar">
+          <span className="t-statusbar-item">
+            <span className="t-dot-live" />
+            SYSTEM_OPERATIONAL
+          </span>
+          <span className="t-statusbar-item t-muted2">
+            DATA: YFINANCE
+          </span>
+          <span className="t-statusbar-item t-muted2">
+            © {new Date().getFullYear()} TRADEROOKIE
+          </span>
+          <span className="t-statusbar-item t-statusbar-item--right t-muted2">
+            FOR EDUCATIONAL USE ONLY
+          </span>
+        </footer>
+      </div>
     </div>
   );
 };

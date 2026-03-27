@@ -65,7 +65,7 @@ const Landing: React.FC = () => {
         <div className="tr-nav-links">
           <a href="#features" className="tr-nav-link">Terminal</a>
           <a href="#how"      className="tr-nav-link">Markets</a>
-          <a href="#cta"      className="tr-nav-link">Pricing</a>
+          <a href="#pricing"  className="tr-nav-link">Pricing</a>
         </div>
         <div className="tr-nav-actions">
           <Link to="/login" className="tr-nav-link">Log In</Link>
@@ -288,6 +288,60 @@ const Landing: React.FC = () => {
           Robinhood paper trading limited to options simulation only.
           Webull backtesting added via Level2 partnership Jan 2026.
         </p>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="tr-pricing">
+        <div className="tr-section-label">Pricing</div>
+        <h2 className="tr-pricing-h2">Simple, Transparent Pricing</h2>
+        <p className="tr-pricing-sub">Everything is free. No hidden fees, no credit card required.</p>
+        <div className="tr-pricing-grid">
+          {[
+            {
+              name: 'Starter',
+              price: '$0',
+              period: 'forever',
+              desc: 'Everything you need to start learning the markets.',
+              features: ['$100K virtual portfolio', 'Live market data', 'ML price predictions', 'Basic backtesting', 'Price alerts'],
+              cta: 'Get Started',
+              highlight: false,
+            },
+            {
+              name: 'Pro',
+              price: '$0',
+              period: 'while in beta',
+              desc: 'Advanced tools for serious learners. Free during our beta.',
+              features: ['Everything in Starter', 'Advanced backtesting', 'Multi-ticker watchlists', 'Portfolio analytics', 'Priority support'],
+              cta: 'Launch Terminal',
+              highlight: true,
+            },
+            {
+              name: 'Enterprise',
+              price: 'Custom',
+              period: 'contact us',
+              desc: 'For schools, bootcamps, and trading communities.',
+              features: ['Everything in Pro', 'Team portfolios', 'Instructor dashboard', 'Custom branding', 'Dedicated support'],
+              cta: 'Contact Us',
+              highlight: false,
+            },
+          ].map(plan => (
+            <div key={plan.name} className={`tr-pricing-card${plan.highlight ? ' tr-pricing-card--highlight' : ''}`}>
+              {plan.highlight && <div className="tr-pricing-badge">Most Popular</div>}
+              <div className="tr-pricing-name">{plan.name}</div>
+              <div className="tr-pricing-price">
+                {plan.price}
+                <span className="tr-pricing-period"> / {plan.period}</span>
+              </div>
+              <p className="tr-pricing-desc">{plan.desc}</p>
+              <ul className="tr-pricing-features">
+                {plan.features.map(f => (
+                  <li key={f}><span className="tr-check">✓</span> {f}</li>
+                ))}
+              </ul>
+              <Link to="/login" className={plan.highlight ? 'tr-btn-primary' : 'tr-btn-outline'}>{plan.cta}</Link>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* CTA */}

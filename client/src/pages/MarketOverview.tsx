@@ -1,25 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
-import { TrendingUp, TrendingDown, ArrowRight, BarChart3, Zap, Shield } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 
-const TRENDING = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'JPM'];
+const TICKERS = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'JPM',
+                  'NFLX', 'AMD', 'V', 'COIN', 'PLTR', 'XOM', 'SPY', 'QQQ'];
+
+const INDICES = ['SPY', 'QQQ'];
+
+const fmt    = (n: number) => n?.toFixed(2) ?? '--';
+const fmtUSD = (n: number) => n != null ? `$${n.toFixed(2)}` : '--';
+const fmtVol = (n: number) => n != null ? `${(n / 1_000_000).toFixed(1)}M` : '--';
 
 const MarketOverview: React.FC = () => {
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quotes, setQuotes]         = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchQuotes = async () => {
-    const results = await Promise.allSettled(
-      TRENDING.map(ticker => api.get(`/stock/${ticker}/quote`).then(r => r.data))
-    );
-    const loaded = results
-      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-      .map(r => r.value);
-    setQuotes(loaded);
-    setLoading(false);
-    setLastUpdated(new Date());
+  const fetchQuotes = async (showSpin = false) => {
+    if (showSpin) setRefreshing(true);
+    try {
+      const results = await Promise.allSettled(
+        TICKERS.map(ticker => api.get(`/stock/${ticker}/quote`).then(r => r.data))
+      );
+      const loaded = results
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+        .map(r => r.value);
+      setQuotes(loaded);
+      setLastUpdated(new Date());
+    } finally {
+      setLoading(false);
+      if (showSpin) setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -28,83 +41,133 @@ const MarketOverview: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const indices = quotes.filter(q => INDICES.includes(q.symbol));
+  const stocks  = quotes.filter(q => !INDICES.includes(q.symbol));
+  const gainers = [...stocks].sort((a, b) => (b.change_percent ?? 0) - (a.change_percent ?? 0)).slice(0, 3);
+  const losers  = [...stocks].sort((a, b) => (a.change_percent ?? 0) - (b.change_percent ?? 0)).slice(0, 3);
+
   return (
     <div>
-      {/* Hero Section */}
-      <div className="text-center py-16 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-green/5 to-transparent pointer-events-none" />
-        <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-brand-green to-emerald-400 bg-clip-text text-transparent">
-          Market Intelligence
-        </h1>
-        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          AI-powered stock analysis with ARIMA + LSTM ensemble predictions, real-time data, and paper trading.
-        </p>
-
-        <div className="flex justify-center gap-8 mt-10">
-          <div className="glass rounded-2xl px-8 py-5 text-center">
-            <BarChart3 className="mx-auto mb-2 text-brand-green" size={28} />
-            <div className="text-sm text-gray-400">ML Predictions</div>
-            <div className="font-bold text-lg">ARIMA + LSTM</div>
-          </div>
-          <div className="glass rounded-2xl px-8 py-5 text-center">
-            <Zap className="mx-auto mb-2 text-yellow-400" size={28} />
-            <div className="text-sm text-gray-400">Paper Trading</div>
-            <div className="font-bold text-lg">$100K Virtual</div>
-          </div>
-          <div className="glass rounded-2xl px-8 py-5 text-center">
-            <Shield className="mx-auto mb-2 text-blue-400" size={28} />
-            <div className="text-sm text-gray-400">Data Source</div>
-            <div className="font-bold text-lg">yfinance</div>
-          </div>
+      {/* Header */}
+      <div className="t-page-header">
+        <span className="t-section-title t-mb-0">MARKET_OVERVIEW</span>
+        <div className="t-page-actions">
+          {lastUpdated && (
+            <span className="t-page-meta">UPD {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            type="button"
+            className="t-btn t-btn-ghost"
+            onClick={() => fetchQuotes(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw size={10} className={refreshing ? 't-spin' : ''} />
+            REFRESH
+          </button>
         </div>
       </div>
 
-      {/* Trending Stocks */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Trending Stocks</h2>
-          <span className="text-xs text-gray-500">
-            {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Loading...'}
-          </span>
-        </div>
+      {/* Index cards */}
+      <div className="mo-indices">
+        {INDICES.map(sym => {
+          const q = indices.find(x => x.symbol === sym);
+          const up = (q?.change_percent ?? 0) >= 0;
+          return (
+            <div key={sym} className="t-card mo-index-card">
+              <div className="t-card-label">{sym}</div>
+              {loading
+                ? <div className="t-card-value"><span className="t-skeleton t-skeleton-md" /></div>
+                : (
+                  <>
+                    <div className="t-card-value">{fmtUSD(q?.price)}</div>
+                    <div className={`t-card-sub ${up ? 't-green' : 't-red'}`}>
+                      {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {up ? '+' : ''}{fmt(q?.change_percent)}%
+                    </div>
+                  </>
+                )
+              }
+            </div>
+          );
+        })}
+      </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array(8).fill(0).map((_, i) => (
-              <div key={i} className="glass rounded-2xl p-6 animate-pulse">
-                <div className="h-6 bg-brand-border rounded w-20 mb-3" />
-                <div className="h-8 bg-brand-border rounded w-28 mb-2" />
-                <div className="h-4 bg-brand-border rounded w-16" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quotes.map((q) => (
-              <Link
-                key={q.symbol}
-                to={`/stock/${q.symbol}`}
-                className="glass rounded-2xl p-6 hover:border-brand-green/50 transition-all duration-300 group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-brand-green font-bold text-lg">{q.symbol}</span>
-                  <ArrowRight size={16} className="text-gray-600 group-hover:text-brand-green transition-colors" />
-                </div>
-                <div className="text-2xl font-bold font-mono">${q.price?.toFixed(2)}</div>
-                <div className={`mt-2 flex items-center gap-1 text-sm font-medium ${q.change_percent >= 0 ? 'price-up' : 'price-down'}`}>
-                  {q.change_percent >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  <span>{q.change_percent >= 0 ? '+' : ''}{q.change_percent?.toFixed(2)}%</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-2 truncate">{q.company_name}</div>
+      {/* Gainers / Losers */}
+      {!loading && (
+        <div className="mo-split">
+          <div className="mo-split-card">
+            <div className="t-card-label">▲ TOP GAINERS</div>
+            {gainers.map(q => (
+              <Link key={q.symbol} to={`/stock/${q.symbol}`} className="mo-mini-row">
+                <span className="mo-mini-symbol">{q.symbol}</span>
+                <span className="mo-mini-chg t-green">+{fmt(q.change_percent)}%</span>
               </Link>
             ))}
           </div>
-        )}
-      </div>
+          <div className="mo-split-card">
+            <div className="t-card-label">▼ TOP LOSERS</div>
+            {losers.map(q => (
+              <Link key={q.symbol} to={`/stock/${q.symbol}`} className="mo-mini-row">
+                <span className="mo-mini-symbol">{q.symbol}</span>
+                <span className="mo-mini-chg t-red">{fmt(q.change_percent)}%</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Disclaimer */}
-      <div className="mt-16 text-center text-xs text-gray-600 glass rounded-xl p-4">
-        ⚠️ Disclaimer: StockSage is for educational purposes only. Not financial advice. Past performance does not guarantee future results.
+      {/* Full stock table */}
+      <div className="t-card-bare">
+        <div className="mo-table-header">
+          <span className="t-card-label t-mb-0">ALL TICKERS</span>
+        </div>
+        <div className="mo-table-wrap">
+          <table className="t-table">
+            <thead>
+              <tr>
+                <th>SYMBOL</th>
+                <th>PRICE</th>
+                <th>CHG%</th>
+                <th>52W_HI</th>
+                <th>52W_LO</th>
+                <th>VOLUME</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? Array(12).fill(0).map((_, i) => (
+                    <tr key={i}>
+                      {Array(6).fill(0).map((_, j) => (
+                        <td key={j}><span className="t-skeleton t-skeleton-sm" /></td>
+                      ))}
+                    </tr>
+                  ))
+                : stocks.map(q => {
+                    const up = (q.change_percent ?? 0) >= 0;
+                    return (
+                      <tr key={q.symbol}>
+                        <td>
+                          <Link to={`/stock/${q.symbol}`} className="mo-sym-link">{q.symbol}</Link>
+                          <span className="mo-company">
+                            {q.company_name?.length > 20
+                              ? q.company_name.slice(0, 20) + '…'
+                              : q.company_name}
+                          </span>
+                        </td>
+                        <td>{fmtUSD(q.price)}</td>
+                        <td className={`${up ? 't-green' : 't-red'} t-fw7`}>
+                          {up ? '+' : ''}{fmt(q.change_percent)}%
+                        </td>
+                        <td>{fmtUSD(q.week_52_high)}</td>
+                        <td>{fmtUSD(q.week_52_low)}</td>
+                        <td>{fmtVol(q.volume)}</td>
+                      </tr>
+                    );
+                  })
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

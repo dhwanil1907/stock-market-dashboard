@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { TrendingUp, Mail, Lock, Loader2, Zap } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
+import './login.css';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -12,28 +13,32 @@ const Login: React.FC = () => {
   const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(true);
 
   const setAuth = useAuthStore(state => state.setAuth);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const interval = setInterval(() => setCursorVisible(v => !v), 530);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       const endpoint = isRegister ? '/auth/register' : '/auth/login';
       const res = await api.post(endpoint, { email, password });
-
       if (isRegister) {
         setIsRegister(false);
-        toast.success('Account created! Please sign in.');
+        toast.success('ACCOUNT_CREATED — Please authenticate.');
       } else {
         setAuth(res.data.user, res.data.token);
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Authentication failed');
+      setError(err.response?.data?.error || 'AUTH_FAILED — Check credentials.');
     } finally {
       setLoading(false);
     }
@@ -45,94 +50,113 @@ const Login: React.FC = () => {
     try {
       const res = await api.post('/auth/demo');
       setAuth(res.data.user, res.data.token);
-      toast.success('Welcome! Exploring as Demo user.');
+      toast.success('DEMO_SESSION_INITIALIZED — Welcome, Rookie.');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Demo login failed — is the server running?');
+      setError(err.response?.data?.error || 'DEMO_INIT_FAILED — Is the server running?');
     } finally {
       setDemoLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-8 glass rounded-3xl shadow-2xl">
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center p-4 bg-brand-green bg-opacity-10 rounded-2xl text-brand-green mb-4">
-          <TrendingUp size={40} />
-        </div>
-        <h1 className="text-2xl font-bold">Welcome to TradeRookie</h1>
-        <p className="text-gray-400 mt-2">{isRegister ? 'Create your paper trading account' : 'Sign in to your account'}</p>
-      </div>
+    <div className="login-root">
+      <div className="login-wrap">
+        <div className="login-window">
 
-      {/* Demo Button */}
-      {!isRegister && (
-        <button
-          onClick={handleDemo}
-          disabled={demoLoading || loading}
-          className="w-full mb-6 py-3 rounded-xl border border-brand-green/40 text-brand-green bg-brand-green/5 hover:bg-brand-green/10 font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {demoLoading
-            ? <><Loader2 className="animate-spin" size={16} /> Setting up demo...</>
-            : <><Zap size={16} /> Try Demo — No Sign Up Needed</>}
-        </button>
-      )}
+          {/* Title bar */}
+          <div className="login-titlebar">
+            <Link to="/" className="login-back">
+              <ArrowLeft size={12} /> Back
+            </Link>
+          </div>
 
-      {!isRegister && (
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-brand-border" />
-          <span className="text-xs text-gray-500">or sign in with email</span>
-          <div className="flex-1 h-px bg-brand-border" />
-        </div>
-      )}
+          {/* Form */}
+          <div className="login-body">
+            <div className="login-logo">
+              <div className="login-logo-text">
+                TRADEROOKIE
+                <span className={`login-logo-cursor${cursorVisible ? '' : ' login-logo-cursor--hidden'}`}>_</span>
+              </div>
+              <div className="login-logo-sub">
+                {isRegister ? 'Create your account' : 'Sign in to your account'}
+              </div>
+            </div>
 
-      {error && (
-        <div className="p-4 rounded-xl mb-6 text-sm bg-brand-red bg-opacity-10 text-brand-red">
-          {error}
-        </div>
-      )}
+            {error && <div className="login-error">✗ {error}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-400 ml-1">Email Address</label>
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-            <input
-              type="email"
-              required
-              className="w-full pl-12 pr-4 py-3 rounded-xl"
-              placeholder="name@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
+            <form onSubmit={handleSubmit}>
+              <div className="login-field">
+                <label className="login-label">Email</label>
+                <input
+                  type="email"
+                  required
+                  className="login-input"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="login-field login-field--last">
+                <label className="login-label">Password</label>
+                <input
+                  type="password"
+                  required
+                  className="login-input"
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="login-btn-primary"
+                disabled={loading || demoLoading}
+              >
+                {loading
+                  ? <><Loader2 size={12} className="login-spinner" /> Signing in...</>
+                  : isRegister ? 'Create Account →' : 'Sign In →'
+                }
+              </button>
+            </form>
+
+            {!isRegister && (
+              <button
+                type="button"
+                className="login-btn-demo"
+                onClick={handleDemo}
+                disabled={demoLoading || loading}
+              >
+                {demoLoading
+                  ? <><Loader2 size={12} className="login-spinner" /> Loading demo...</>
+                  : '⚡ Try Demo — No Sign Up Needed'
+                }
+              </button>
+            )}
+
+            <div className="login-toggle">
+              {isRegister ? (
+                <>Already have an account?{' '}
+                  <button type="button" className="login-btn-link" onClick={() => setIsRegister(false)}>
+                    Sign In
+                  </button>
+                </>
+              ) : (
+                <>Don't have an account?{' '}
+                  <button type="button" className="login-btn-link" onClick={() => setIsRegister(true)}>
+                    Register
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-400 ml-1">Password</label>
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-            <input
-              type="password"
-              required
-              className="w-full pl-12 pr-4 py-3 rounded-xl"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
-          </div>
+        <div className="login-footer">
+          FOR EDUCATIONAL USE ONLY · NOT FINANCIAL ADVICE
         </div>
-
-        <button type="submit" disabled={loading || demoLoading} className="primary w-full py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-          {loading ? <Loader2 className="animate-spin" size={20} /> : (isRegister ? 'Create Account' : 'Sign In')}
-        </button>
-      </form>
-
-      <div className="mt-8 text-center text-sm text-gray-400">
-        {isRegister ? (
-          <p>Already have an account? <button onClick={() => setIsRegister(false)} className="text-brand-green hover:underline">Sign In</button></p>
-        ) : (
-          <p>Don't have an account? <button onClick={() => setIsRegister(true)} className="text-brand-green hover:underline">Get Started</button></p>
-        )}
       </div>
     </div>
   );

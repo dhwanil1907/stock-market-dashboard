@@ -2,27 +2,30 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { usePortfolioStore } from '../stores/portfolioStore';
 import api from '../lib/api';
-import { Wallet, TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
 import { format } from 'date-fns';
 
-const COLORS = ['#00C896', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316'];
+const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316'];
 
 type SortKey = 'ticker' | 'shares' | 'value' | 'pl';
 type SortDir = 'asc' | 'desc';
 
+const fmtUSD = (n: number) =>
+  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const Portfolio: React.FC = () => {
   const { token } = useAuthStore();
   const { cashBalance, holdings, fetchPortfolio } = usePortfolioStore();
-  const [prices, setPrices] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const [prices, setPrices]           = useState<Record<string, number>>({});
+  const [loading, setLoading]         = useState(true);
   const [snapHistory, setSnapHistory] = useState<any[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>('value');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [sortKey, setSortKey]         = useState<SortKey>('value');
+  const [sortDir, setSortDir]         = useState<SortDir>('desc');
 
   const fetchPrices = useCallback(async () => {
     if (!holdings.length) return;
@@ -42,9 +45,7 @@ const Portfolio: React.FC = () => {
         value: s.total_value,
         date: format(new Date(s.timestamp), 'MMM d'),
       })));
-    }).catch(() => {
-      toast.error('Could not load portfolio history');
-    });
+    }).catch(() => toast.error('Could not load portfolio history'));
   }, [token]);
 
   useEffect(() => {
@@ -54,205 +55,202 @@ const Portfolio: React.FC = () => {
   }, [fetchPrices]);
 
   const totalInvested = holdings.reduce((sum, h) => sum + h.shares * h.avg_cost, 0);
-  const totalValue = holdings.reduce((sum, h) => sum + h.shares * (prices[h.ticker] || h.avg_cost), 0);
-  const totalPL = totalValue - totalInvested;
+  const totalValue    = holdings.reduce((sum, h) => sum + h.shares * (prices[h.ticker] || h.avg_cost), 0);
+  const totalPL       = totalValue - totalInvested;
   const portfolioValue = cashBalance + totalValue;
 
   const pieData = holdings.map(h => ({
     name: h.ticker,
     value: h.shares * (prices[h.ticker] || h.avg_cost),
   }));
-  if (cashBalance > 0) pieData.push({ name: 'Cash', value: cashBalance });
+  if (cashBalance > 0) pieData.push({ name: 'CASH', value: cashBalance });
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir('desc');
-    }
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
   };
 
   const sortedHoldings = useMemo(() => {
     return [...holdings].sort((a, b) => {
-      const aPrice = prices[a.ticker] || a.avg_cost;
-      const bPrice = prices[b.ticker] || b.avg_cost;
-      let aVal: any, bVal: any;
-      if (sortKey === 'ticker') { aVal = a.ticker; bVal = b.ticker; }
-      else if (sortKey === 'shares') { aVal = a.shares; bVal = b.shares; }
-      else if (sortKey === 'value') { aVal = a.shares * aPrice; bVal = b.shares * bPrice; }
-      else { aVal = (aPrice - a.avg_cost) / a.avg_cost; bVal = (bPrice - b.avg_cost) / b.avg_cost; }
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      const aP = prices[a.ticker] || a.avg_cost;
+      const bP = prices[b.ticker] || b.avg_cost;
+      let av: any, bv: any;
+      if (sortKey === 'ticker')  { av = a.ticker; bv = b.ticker; }
+      else if (sortKey === 'shares') { av = a.shares; bv = b.shares; }
+      else if (sortKey === 'value')  { av = a.shares * aP; bv = b.shares * bP; }
+      else { av = (aP - a.avg_cost) / a.avg_cost; bv = (bP - b.avg_cost) / b.avg_cost; }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ?  1 : -1;
       return 0;
     });
   }, [holdings, prices, sortKey, sortDir]);
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronUp size={12} className="text-gray-600" />;
-    return sortDir === 'asc' ? <ChevronUp size={12} className="text-brand-green" /> : <ChevronDown size={12} className="text-brand-green" />;
-  };
-
-  const SortTh = ({ col, label, align = 'right' }: { col: SortKey; label: string; align?: string }) => (
-    <th
-      className={`py-3 text-${align} cursor-pointer select-none hover:text-white transition-colors`}
-      onClick={() => handleSort(col)}
-    >
-      <span className="inline-flex items-center gap-1 justify-end">
-        {label} <SortIcon col={col} />
-      </span>
-    </th>
-  );
+  const SortIcon = ({ col }: { col: SortKey }) =>
+    sortKey !== col
+      ? <ChevronUp size={11} className="t-muted2" />
+      : sortDir === 'asc'
+        ? <ChevronUp size={11} className="t-green" />
+        : <ChevronDown size={11} className="t-green" />;
 
   if (!token) return (
-    <div className="text-center py-20">
-      <Wallet className="mx-auto mb-4 text-gray-600" size={48} />
-      <p className="text-gray-400 text-lg">Please sign in to view your portfolio.</p>
-    </div>
+    <div className="t-card pf-empty">AUTH_REQUIRED — Please sign in to view your portfolio.</div>
   );
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-8">Portfolio Dashboard</h1>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="glass rounded-2xl p-6">
-          <div className="text-sm text-gray-400 mb-1">Total Value</div>
-          <div className="text-2xl font-bold font-mono">${portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
-        <div className="glass rounded-2xl p-6">
-          <div className="text-sm text-gray-400 mb-1">Cash Balance</div>
-          <div className="text-2xl font-bold font-mono text-brand-green">${cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
-        <div className="glass rounded-2xl p-6">
-          <div className="text-sm text-gray-400 mb-1">Invested</div>
-          <div className="text-2xl font-bold font-mono">${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
-        <div className="glass rounded-2xl p-6">
-          <div className="text-sm text-gray-400 mb-1">Unrealized P&L</div>
-          <div className={`text-2xl font-bold font-mono flex items-center gap-1 ${totalPL >= 0 ? 'price-up' : 'price-down'}`}>
-            {totalPL >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
-            {totalPL >= 0 ? '+' : ''}${totalPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
+      <div className="t-page-header">
+        <span className="t-section-title t-mb-0">PORTFOLIO</span>
+        <span className="t-page-meta">
+          {loading ? 'LOADING...' : `${holdings.length} POSITION${holdings.length !== 1 ? 'S' : ''}`}
+        </span>
       </div>
 
-      {/* Portfolio Value Over Time */}
+      {/* Stat cards */}
+      <div className="pf-stats">
+        {[
+          { label: 'TOTAL_VALUE',    value: `$${fmtUSD(portfolioValue)}`,  color: '' },
+          { label: 'CASH_BALANCE',   value: `$${fmtUSD(cashBalance)}`,      color: 't-green' },
+          { label: 'INVESTED',       value: `$${fmtUSD(totalInvested)}`,    color: '' },
+          {
+            label: 'UNREALIZED_P&L',
+            value: `${totalPL >= 0 ? '+' : ''}$${fmtUSD(Math.abs(totalPL))}`,
+            color: totalPL >= 0 ? 't-green' : 't-red',
+            icon: totalPL >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />,
+          },
+        ].map(({ label, value, color, icon }) => (
+          <div key={label} className="t-card">
+            <div className="t-card-label">{label}</div>
+            <div className={`t-card-value ${color}`}>
+              {icon && <>{icon} </>}{value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Equity curve */}
       {snapHistory.length > 1 && (
-        <div className="glass rounded-2xl p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">Portfolio Value Over Time</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={snapHistory}>
-              <defs>
-                <linearGradient id="pgGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00C896" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#00C896" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2E33" />
-              <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 11 }} />
-              <YAxis
-                domain={['auto', 'auto']}
-                tick={{ fill: '#888', fontSize: 11 }}
-                tickFormatter={v => `$${(v / 1000).toFixed(0)}K`}
-              />
-              <Tooltip
-                contentStyle={{ background: '#161A1E', border: '1px solid #2A2E33', borderRadius: 12 }}
-                formatter={(v: number) => [`$${v.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'Value']}
-              />
-              <Area type="monotone" dataKey="value" stroke="#00C896" strokeWidth={2} fill="url(#pgGradient)" dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="t-card-bare">
+          <div className="pf-chart-wrap">
+            <div className="pf-chart-title">EQUITY_CURVE</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={snapHistory}>
+                <defs>
+                  <linearGradient id="pfGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#10B981" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E2328" />
+                <XAxis dataKey="date" tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                  tickFormatter={v => `$${(v / 1000).toFixed(0)}K`}
+                  width={52}
+                />
+                <Tooltip
+                  contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
+                  formatter={(v: number) => [`$${fmtUSD(v)}`, 'VALUE']}
+                />
+                <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={1.5} fill="url(#pfGrad)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
-        {/* Holdings Table */}
-        <div className="glass rounded-2xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Holdings</h3>
+      {/* Holdings + Allocation */}
+      <div className="pf-body">
+        {/* Holdings table */}
+        <div className="t-card-bare">
+          <div className="mo-table-header">
+            <span className="t-card-label t-mb-0">HOLDINGS</span>
+          </div>
           {holdings.length === 0 ? (
-            <p className="text-gray-500 text-sm py-8 text-center">No holdings yet. Start trading on a stock detail page!</p>
+            <div className="pf-empty">No positions yet. Buy a stock to get started.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-400 border-b border-brand-border">
-                    <th
-                      className="text-left py-3 cursor-pointer select-none hover:text-white transition-colors"
-                      onClick={() => handleSort('ticker')}
-                    >
-                      <span className="inline-flex items-center gap-1">Ticker <SortIcon col="ticker" /></span>
-                    </th>
-                    <SortTh col="shares" label="Shares" />
-                    <th className="text-right py-3 text-gray-400">Avg Cost</th>
-                    <th className="text-right py-3 text-gray-400">Current</th>
-                    <SortTh col="value" label="Value" />
-                    <SortTh col="pl" label="P&L" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedHoldings.map(h => {
-                    const curPrice = prices[h.ticker] || h.avg_cost;
-                    const value = h.shares * curPrice;
-                    const pl = value - h.shares * h.avg_cost;
-                    const plPct = ((curPrice - h.avg_cost) / h.avg_cost * 100);
-                    return (
-                      <tr key={h.ticker} className="border-b border-brand-border/50 hover:bg-brand-border/30 transition-colors">
-                        <td className="py-4 font-bold text-brand-green">{h.ticker}</td>
-                        <td className="py-4 text-right font-mono">{h.shares}</td>
-                        <td className="py-4 text-right font-mono">${h.avg_cost.toFixed(2)}</td>
-                        <td className="py-4 text-right font-mono">${curPrice.toFixed(2)}</td>
-                        <td className="py-4 text-right font-mono">${value.toFixed(2)}</td>
-                        <td className={`py-4 text-right font-mono ${pl >= 0 ? 'price-up' : 'price-down'}`}>
-                          {pl >= 0 ? '+' : ''}${pl.toFixed(2)} ({plPct.toFixed(1)}%)
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <table className="t-table">
+              <thead>
+                <tr>
+                  <th onClick={() => handleSort('ticker')} className="t-th-sort">
+                    TICKER <SortIcon col="ticker" />
+                  </th>
+                  <th onClick={() => handleSort('shares')} className="t-th-sort">
+                    SHARES <SortIcon col="shares" />
+                  </th>
+                  <th>AVG_COST</th>
+                  <th>CURRENT</th>
+                  <th onClick={() => handleSort('value')} className="t-th-sort">
+                    VALUE <SortIcon col="value" />
+                  </th>
+                  <th onClick={() => handleSort('pl')} className="t-th-sort">
+                    P&L <SortIcon col="pl" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedHoldings.map(h => {
+                  const cur  = prices[h.ticker] || h.avg_cost;
+                  const val  = h.shares * cur;
+                  const pl   = val - h.shares * h.avg_cost;
+                  const plPct = ((cur - h.avg_cost) / h.avg_cost * 100);
+                  return (
+                    <tr key={h.ticker}>
+                      <td className="t-green t-fw7">{h.ticker}</td>
+                      <td>{h.shares}</td>
+                      <td>${h.avg_cost.toFixed(2)}</td>
+                      <td>${cur.toFixed(2)}</td>
+                      <td>${val.toFixed(2)}</td>
+                      <td className={`t-fw7 ${pl >= 0 ? 't-green' : 't-red'}`}>
+                        {pl >= 0 ? '+' : ''}${pl.toFixed(2)} ({plPct.toFixed(1)}%)
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
 
-        {/* Allocation Chart */}
-        <div className="glass rounded-2xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Allocation</h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70}
-                  outerRadius={110}
-                  paddingAngle={3}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#161A1E', border: '1px solid #2A2E33', borderRadius: 12 }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-gray-500 text-sm text-center py-8">No data to display</p>
-          )}
-          <div className="flex flex-wrap gap-3 mt-4 justify-center">
-            {pieData.map((d, i) => (
-              <div key={d.name} className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                <span className="text-gray-400">{d.name}</span>
-              </div>
-            ))}
+        {/* Pie allocation */}
+        <div className="t-card-bare">
+          <div className="mo-table-header">
+            <span className="t-card-label t-mb-0">ALLOCATION</span>
           </div>
+          {pieData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%" cy="50%"
+                    innerRadius={60} outerRadius={95}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
+                    formatter={(v: number) => [`$${fmtUSD(v)}`, '']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pf-alloc-legend">
+                {pieData.map((d, i) => (
+                  <div key={d.name} className="pf-legend-item">
+                    <div className="pf-legend-dot" style={{ background: COLORS[i % COLORS.length] }} />
+                    {d.name}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="pf-empty">No allocation data.</div>
+          )}
         </div>
       </div>
     </div>

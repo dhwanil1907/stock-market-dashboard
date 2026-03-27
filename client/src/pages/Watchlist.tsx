@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { useWatchlistStore } from '../stores/watchlistStore';
 import { toast } from 'sonner';
 import api from '../lib/api';
-import { Eye, Plus, Trash2, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Trash2, Loader2, Plus } from 'lucide-react';
 
 const Watchlist: React.FC = () => {
   const { tickers, addTicker, removeTicker, init } = useWatchlistStore();
-  const [quotes, setQuotes] = useState<Record<string, any>>({});
+  const [quotes, setQuotes]   = useState<Record<string, any>>({});
   const [newTicker, setNewTicker] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -41,80 +41,92 @@ const Watchlist: React.FC = () => {
 
   const handleRemove = (ticker: string) => {
     removeTicker(ticker);
-    toast(`Removed ${ticker} from watchlist`, {
-      action: {
-        label: 'Undo',
-        onClick: () => addTicker(ticker),
-      },
+    toast(`Removed ${ticker}`, {
+      action: { label: 'Undo', onClick: () => addTicker(ticker) },
       duration: 5000,
     });
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Watchlist</h1>
-        <div className="flex gap-2">
+      <div className="t-page-header">
+        <span className="t-section-title t-mb-0">WATCHLIST</span>
+        <div className="wl-add-row">
           <input
             type="text"
-            placeholder="Add ticker..."
-            className="py-2 px-4 rounded-full text-sm w-40"
+            className="wl-add-input"
+            placeholder="Add ticker…"
             value={newTicker}
             onChange={e => setNewTicker(e.target.value.toUpperCase())}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
           />
-          <button onClick={handleAdd} className="primary px-4 py-2 rounded-full text-sm flex items-center gap-1">
-            <Plus size={16} /> Add
+          <button type="button" className="t-btn t-btn-accent" onClick={handleAdd}>
+            <Plus size={12} /> ADD
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="animate-spin text-brand-green" size={32} />
+        <div className="t-card pf-empty">
+          <Loader2 size={20} className="t-spin t-green" />
         </div>
       ) : tickers.length === 0 ? (
-        <div className="text-center py-24 glass rounded-2xl">
-          <Eye className="mx-auto mb-4 text-gray-600" size={48} />
-          <p className="text-gray-400 font-medium">Your watchlist is empty</p>
-          <p className="text-gray-600 text-sm mt-1">Type a ticker above and press Enter to add your first stock.</p>
+        <div className="t-card wl-empty">
+          <div className="wl-empty-icon">◈</div>
+          <div className="t-muted2">WATCHLIST_EMPTY</div>
+          <div className="t-muted2 wl-empty-sub">
+            Type a ticker above and press Enter.
+          </div>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {tickers.map(t => {
-            const q = quotes[t];
-            return (
-              <div key={t} className="glass rounded-2xl p-5 flex items-center justify-between hover:border-brand-green/30 transition-all">
-                <Link to={`/stock/${t}`} className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-brand-green/10 rounded-xl flex items-center justify-center text-brand-green font-bold text-sm">
-                    {t.slice(0, 2)}
-                  </div>
-                  <div>
-                    <div className="font-bold">{t}</div>
-                    <div className="text-xs text-gray-400">{q?.company_name || '—'}</div>
-                  </div>
-                </Link>
-
-                <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <div className="font-mono font-bold">${q?.price?.toFixed(2) || '--'}</div>
-                    <div className={`text-sm flex items-center justify-end gap-1 ${(q?.change_percent ?? 0) >= 0 ? 'price-up' : 'price-down'}`}>
-                      {(q?.change_percent ?? 0) >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                      {q?.change_percent?.toFixed(2) || '--'}%
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleRemove(t)}
-                    className="p-2 text-gray-500 hover:text-brand-red transition-colors"
-                    aria-label={`Remove ${t} from watchlist`}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="t-card-bare">
+          <table className="t-table">
+            <thead>
+              <tr>
+                <th>SYMBOL</th>
+                <th>COMPANY</th>
+                <th>PRICE</th>
+                <th>CHG%</th>
+                <th>52W_HI</th>
+                <th>52W_LO</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickers.map(t => {
+                const q = quotes[t];
+                const up = (q?.change_percent ?? 0) >= 0;
+                return (
+                  <tr key={t}>
+                    <td>
+                      <Link to={`/stock/${t}`} className="mo-sym-link">{t}</Link>
+                    </td>
+                    <td className="t-muted2 wl-company-cell">
+                      {q?.company_name ?? '—'}
+                    </td>
+                    <td>{q?.price != null ? `$${q.price.toFixed(2)}` : '—'}</td>
+                    <td className={`t-fw7 ${up ? 't-green' : 't-red'}`}>
+                      {q?.change_percent != null
+                        ? `${up ? '+' : ''}${q.change_percent.toFixed(2)}%`
+                        : '—'}
+                    </td>
+                    <td>{q?.week_52_high != null ? `$${q.week_52_high.toFixed(2)}` : '—'}</td>
+                    <td>{q?.week_52_low  != null ? `$${q.week_52_low.toFixed(2)}`  : '—'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="t-btn t-btn-ghost t-btn-icon"
+                        onClick={() => handleRemove(t)}
+                        aria-label={`Remove ${t}`}
+                      >
+                        <Trash2 size={11} className="t-red" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
