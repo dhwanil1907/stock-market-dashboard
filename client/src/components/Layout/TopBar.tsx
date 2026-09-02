@@ -1,19 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, HelpCircle, Bell } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../lib/api';
-
-const PAGE_LABELS: Record<string, string> = {
-  '/dashboard': 'MARKET_OVERVIEW',
-  '/sectors':   'SECTOR_HEATMAP',
-  '/watchlist': 'WATCHLIST',
-  '/portfolio': 'PORTFOLIO',
-  '/history':   'TRADE_HISTORY',
-  '/alerts':    'ALERT_MONITOR',
-  '/backtest':  'SIMULATION_LAB',
-  '/intel':     'INTELLIGENCE_FEED',
-};
 
 function formatCash(v: number) {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
@@ -24,20 +13,22 @@ function formatCash(v: number) {
 const TopBar: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<{ symbol: string; name?: string }[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
-  const pageLabel = PAGE_LABELS[location.pathname] ?? 'TERMINAL';
-
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/stock/search?q=${query}`);
         setResults(res.data.slice(0, 6));
-      } catch { setResults([]); }
+      } catch {
+        setResults([]);
+      }
     }, 280);
     return () => clearTimeout(t);
   }, [query]);
@@ -51,24 +42,28 @@ const TopBar: React.FC = () => {
   }, []);
 
   const handleSelect = (symbol: string) => {
-    setQuery(''); setResults([]);
+    setQuery('');
+    setResults([]);
     navigate(`/stock/${symbol}`);
   };
 
+  const initials = user?.email
+    ? user.email
+      .split('@')[0]
+      .slice(0, 2)
+      .toUpperCase()
+    : '—';
+
   return (
     <header className="t-topbar">
-      <div className="t-topbar-left">
-        <span className="t-muted2">▸</span>
-        <span className="t-topbar-page">{pageLabel}</span>
-      </div>
+      <div className="t-topbar-left" aria-hidden="true" />
 
       <div className="t-topbar-right">
-        {/* Search */}
         <div style={{ position: 'relative' }} ref={ref}>
           <div className="t-topbar-search">
             <Search size={12} color="var(--t-muted2)" />
             <input
-              placeholder="SEARCH_TICKER..."
+              placeholder="SEARCH_MARKETS..."
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -76,7 +71,13 @@ const TopBar: React.FC = () => {
           {results.length > 0 && (
             <div className="t-search-results">
               {results.map(r => (
-                <div key={r.symbol} className="t-search-result-item" onMouseDown={() => handleSelect(r.symbol)}>
+                <div
+                  key={r.symbol}
+                  className="t-search-result-item"
+                  onMouseDown={() => handleSelect(r.symbol)}
+                  role="button"
+                  tabIndex={0}
+                >
                   <span className="t-search-result-symbol">{r.symbol}</span>
                   <span className="t-search-result-name">{r.name}</span>
                 </div>
@@ -85,7 +86,15 @@ const TopBar: React.FC = () => {
           )}
         </div>
 
-        {/* User */}
+        <div className="t-topbar-icons">
+          <button type="button" className="t-icon-btn" aria-label="Help">
+            <HelpCircle size={17} strokeWidth={1.5} />
+          </button>
+          <button type="button" className="t-icon-btn" aria-label="Notifications">
+            <Bell size={17} strokeWidth={1.5} />
+          </button>
+        </div>
+
         {user && (
           <div className="t-user-info">
             <div className="t-user-email">{user.email.split('@')[0].toUpperCase()}</div>
@@ -93,10 +102,8 @@ const TopBar: React.FC = () => {
           </div>
         )}
 
-        {/* Live indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, letterSpacing: '0.1em', color: 'var(--t-accent)' }}>
-          <span className="t-dot-live" />
-          LIVE
+        <div className="t-user-avatar" aria-hidden>
+          {initials}
         </div>
       </div>
     </header>

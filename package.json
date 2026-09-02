@@ -1,0 +1,24 @@
+{
+  "name": "stock-market",
+  "version": "1.0.0",
+  "description": "A end-to-end machine learning pipeline that predicts 60-day directional price moves for TSLA using only technical indicators derived from OHLCV data.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently --names \"ML,API,UI\" --prefix-colors \"cyan,yellow,magenta\" \"cd ml-service && source venv/bin/activate && python3 main.py\" \"cd server && npm run dev\" \"cd client && npm run dev\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dhwanil1907/stock-market-dashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dhwanil1907/stock-market-dashboard/issues"
+  },
+  "homepage": "https://github.com/dhwanil1907/stock-market-dashboard#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

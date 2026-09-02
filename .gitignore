@@ -16,7 +16,8 @@ server/.env
 ml-service/.env
 
 # Python
-ml-service/venv/
+venv/
+**/venv/
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -40,6 +41,9 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Superpowers brainstorm sessions
+.superpowers/
 
 # Editor
 .vscode/

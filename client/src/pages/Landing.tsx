@@ -1,23 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import './landing.css';
 
 const TICKERS = [
-  'TSLA','AAPL','NVDA','MSFT','GOOGL','AMZN','META','SPY',
-  'JPM','BRK-B','V','UNH','XOM','JNJ','WMT','NFLX','AMD','COIN','PLTR','UBER',
+  'TSLA', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY',
+  'JPM', 'BRK-B', 'V', 'UNH', 'XOM', 'JNJ', 'WMT', 'NFLX', 'AMD', 'COIN', 'PLTR', 'UBER',
 ];
 
 interface Quote { symbol: string; price: number; change_percent: number; }
+interface HistoryPoint { date: string; close: number; }
+
+function isMarketOpen(): boolean {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay();
+  if (day === 0 || day === 6) return false;
+  const minutes = et.getHours() * 60 + et.getMinutes();
+  return minutes >= 570 && minutes < 960;
+}
 
 function useTickerPrices(): Quote[] {
   const [quotes, setQuotes] = useState<Quote[]>([]);
-
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get(`/stock/quotes/batch?symbols=${TICKERS.join(',')}`);
-        setQuotes(res.data.map((q: any) => ({
+        setQuotes(res.data.map((q: Quote) => ({
           symbol: String(q.symbol),
           price: Number(q.price) || 0,
           change_percent: isFinite(Number(q.change_percent)) ? Number(q.change_percent) : 0,
@@ -25,70 +34,230 @@ function useTickerPrices(): Quote[] {
       } catch { /* keep previous */ }
     };
     load();
-    const id = setInterval(load, 15000);
+    if (!isMarketOpen()) return;
+    const id = setInterval(load, 60000);
     return () => clearInterval(id);
   }, []);
-
   return quotes;
 }
 
-const CANDLES: [number, number, string][] = [
-  [30,185,'#10B981'],[60,170,'#10B981'],[90,155,'#EF4444'],[120,145,'#10B981'],[150,125,'#10B981'],
-  [180,118,'#EF4444'],[210,108,'#10B981'],[240,98,'#10B981'],[270,88,'#EF4444'],[300,78,'#10B981'],
-  [330,68,'#10B981'],[360,75,'#EF4444'],[390,65,'#10B981'],[420,55,'#10B981'],[450,62,'#EF4444'],
-  [480,50,'#10B981'],[510,58,'#EF4444'],[540,46,'#10B981'],[570,38,'#10B981'],[600,44,'#EF4444'],
-  [630,35,'#10B981'],[660,42,'#10B981'],[690,32,'#10B981'],[720,38,'#EF4444'],[750,28,'#10B981'],
+const PREVIEW_PERIODS = [
+  { api: '5d' as const, label: '1W' },
+  { api: '1mo' as const, label: '1M' },
+  { api: '3mo' as const, label: '3M' },
 ];
+
+function useLiveChart(ticker: string, period: string) {
+  const [quote, setQuote] = useState<any>(null);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  useEffect(() => {
+    Promise.all([
+      api.get(`/stock/${ticker}/quote`).then(r => r.data),
+      api.get(`/stock/${ticker}/history?period=${period}`).then(r => r.data),
+    ]).then(([q, h]) => {
+      setQuote(q);
+      setHistory(Array.isArray(h) ? h : []);
+    }).catch(() => {});
+  }, [ticker, period]);
+  return { quote, history };
+}
+
+type ChartPoint = { x: number; y: number; date: string; close: number };
+
+function buildPath(
+  history: HistoryPoint[],
+  w: number,
+  h: number,
+): { line: string; area: string; points: ChartPoint[] } {
+  if (history.length < 2) return { line: '', area: '', points: [] };
+  const prices = history.map(p => p.close);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const pad = 6;
+  const points = history.map((pt, i) => {
+    const p = pt.close;
+    return {
+      x: pad + (i / (history.length - 1)) * (w - pad * 2),
+      y: pad + (1 - (p - min) / range) * (h - pad * 2 - 4),
+      date: pt.date,
+      close: pt.close,
+    };
+  });
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const area = `${line} L${points[points.length - 1].x.toFixed(1)},${h} L${points[0].x.toFixed(1)},${h} Z`;
+  return { line, area, points };
+}
+
+function formatChartDate(iso: string): string {
+  if (!iso || iso.length < 10) return iso;
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 const FEATURES = [
-  { title: 'ML Predictions',  body: '60-day price direction forecasts powered by LSTM neural networks trained on real TSLA data. F1 score of 0.77 — not a toy model.' },
-  { title: 'Paper Trading',   body: 'Trade with $100K virtual capital. No risk, real market data, real execution logic. Build confidence before you go live.' },
-  { title: 'Backtesting',     body: 'Test your strategies against years of historical data. See CAGR, Sharpe ratio, and max drawdown before risking a single dollar.' },
-  { title: 'Price Alerts',    body: 'Set custom price alerts for any ticker. Get notified the moment a stock hits your target — never miss a move.' },
+  {
+    num: '01',
+    title: 'Paper Trading',
+    desc: 'Execute simulated buys and sells with $100K in virtual capital. Real fills, real prices, zero financial risk.',
+  },
+  {
+    num: '02',
+    title: 'AI Predictions',
+    desc: 'ML ensemble models forecast 30-day price direction with confidence scores. Powered by historical OHLCV data.',
+  },
+  {
+    num: '03',
+    title: 'Strategy Backtesting',
+    desc: 'Test SMA crossover, RSI, and MACD strategies against up to 5 years of real historical price data.',
+  },
+  {
+    num: '04',
+    title: 'Market Intel',
+    desc: 'Ticker-filtered news feed from live financial sources. Stay ahead of what\'s moving the market.',
+  },
+  {
+    num: '05',
+    title: 'Price Alerts',
+    desc: 'Set price thresholds on any ticker. Get notified the moment a stock crosses your target.',
+  },
+  {
+    num: '06',
+    title: 'Sector Heatmap',
+    desc: 'Visualize sector leadership and lagging areas with live daily and monthly return data.',
+  },
 ];
 
+const FAQ_ITEMS = [
+  {
+    q: 'Is this completely free?',
+    a: 'Yes. StockSage is 100% free — no credit card, no subscription, no real money required at any point.',
+  },
+  {
+    q: 'How accurate is the market data?',
+    a: "Prices come from live market feeds with a short delay typical of free data tiers. They closely mirror what you'd see on a real broker.",
+  },
+  {
+    q: 'Can I lose real money here?',
+    a: 'No. Every trade uses virtual cash. Nothing you do on StockSage affects your real finances.',
+  },
+  {
+    q: 'What are the AI predictions based on?',
+    a: "Models are trained on historical price and volume data using statistical and ML methods. They're research tools — not financial advice.",
+  },
+  {
+    q: 'Do I need prior trading experience?',
+    a: "None. That's the point — StockSage is designed as a safe space to learn how markets work before you ever risk real money.",
+  },
+];
 
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`ln-faq-item${open ? ' ln-faq-item--open' : ''}`}>
+      <button className="ln-faq-q" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span>{q}</span>
+        <span className="ln-faq-chevron" aria-hidden>{open ? '−' : '+'}</span>
+      </button>
+      {open && <p className="ln-faq-a">{a}</p>}
+    </div>
+  );
+}
 
 const Landing: React.FC = () => {
   const quotes = useTickerPrices();
   const tickerData = quotes.length > 0 ? quotes : TICKERS.map(s => ({ symbol: s, price: 0, change_percent: 0 }));
   const doubled = [...tickerData, ...tickerData];
+  const [previewPeriod, setPreviewPeriod] = useState<(typeof PREVIEW_PERIODS)[number]['api']>('1mo');
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const { quote: aaplQuote, history: aaplHistory } = useLiveChart('AAPL', previewPeriod);
+  const chartGeo = useMemo(() => buildPath(aaplHistory, 800, 160), [aaplHistory]);
+  const { line: aaplLine, area: aaplArea, points: chartPoints } = chartGeo;
+  const chartUp = aaplQuote ? aaplQuote.change_percent >= 0 : true;
+  const strokeCol = chartUp ? '#10b981' : '#ff7070';
+  const gradId = `ln-area-${previewPeriod}-${chartUp ? 'u' : 'd'}`;
 
-  const tsla = quotes.find(q => q.symbol === 'TSLA');
+  useEffect(() => {
+    setHoverIdx(null);
+  }, [previewPeriod, aaplHistory]);
+
+  const updateHoverFromClient = useCallback(
+    (svg: SVGSVGElement, clientX: number, clientY: number) => {
+      if (chartPoints.length < 2) return;
+      const p = svg.createSVGPoint();
+      p.x = clientX;
+      p.y = clientY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      let loc: DOMPoint;
+      try {
+        loc = p.matrixTransform(ctm.inverse());
+      } catch {
+        return;
+      }
+      const xm = loc.x;
+      const pad = 6;
+      const w = 800;
+      const inner = w - pad * 2;
+      const t = (xm - pad) / inner;
+      const idx = Math.round(Math.max(0, Math.min(1, t)) * (chartPoints.length - 1));
+      setHoverIdx(idx);
+    },
+    [chartPoints],
+  );
+
+  const onChartMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      updateHoverFromClient(e.currentTarget, e.clientX, e.clientY);
+    },
+    [updateHoverFromClient],
+  );
+
+  const onChartTouch = useCallback(
+    (e: React.TouchEvent<SVGSVGElement>) => {
+      const t = e.touches[0];
+      if (!t) return;
+      updateHoverFromClient(e.currentTarget, t.clientX, t.clientY);
+    },
+    [updateHoverFromClient],
+  );
+
+  const hoverPt = hoverIdx != null && chartPoints[hoverIdx] ? chartPoints[hoverIdx] : null;
 
   return (
-    <div className="tr-root">
+    <div className="ln-root">
 
-      {/* Navbar */}
-      <nav className="tr-nav">
-        <span className="tr-nav-logo">TradeRookie</span>
-        <div className="tr-nav-links">
-          <a href="#features" className="tr-nav-link">Terminal</a>
-          <a href="#how"      className="tr-nav-link">Markets</a>
-          <a href="#pricing"  className="tr-nav-link">Pricing</a>
+      {/* ── NAV ── */}
+      <nav className="ln-nav" aria-label="Main">
+        <span className="ln-nav-logo">STOCKSAGE</span>
+        <div className="ln-nav-links">
+          <a href="#features" className="ln-nav-link">Features</a>
+          <a href="#how" className="ln-nav-link">How it works</a>
+          <a href="#pricing" className="ln-nav-link">Pricing</a>
         </div>
-        <div className="tr-nav-actions">
-          <Link to="/login" className="tr-nav-link">Log In</Link>
-          <Link to="/login" className="tr-btn-primary">Start Trading</Link>
+        <div className="ln-nav-actions">
+          <Link to="/login" className="ln-nav-link">Log in</Link>
+          <Link to="/login" className="ln-btn-primary ln-btn-sm">Sign up free</Link>
         </div>
       </nav>
 
-      {/* Ticker Strip */}
-      <div className="tr-ticker-strip">
-        <div className="tr-ticker-live">
-          <span className="tr-badge-dot" /> LIVE
+      {/* ── TICKER STRIP ── */}
+      <div className="ln-ticker-strip" aria-hidden>
+        <div className="ln-ticker-label">
+          <span className="ln-badge-dot" /> LIVE
         </div>
-        <div className="tr-ticker-overflow">
-          <div className="tr-ticker-scroll">
+        <div className="ln-ticker-overflow">
+          <div className="ln-ticker-scroll">
             {doubled.map((q, i) => {
               const up = q.change_percent >= 0;
               const price = q.price > 0 ? `$${q.price.toFixed(2)}` : '—';
-              const pct   = q.price > 0 ? `${up ? '▲' : '▼'} ${Math.abs(q.change_percent).toFixed(2)}%` : '';
+              const pct = q.price > 0 ? `${up ? '▲' : '▼'} ${Math.abs(q.change_percent).toFixed(2)}%` : '';
               return (
-                <div key={i} className="tr-ticker-item">
-                  <span className="tr-ticker-symbol">{q.symbol}</span>
-                  <span className="tr-ticker-price">{price}</span>
-                  {pct && <span className={up ? 'tr-ticker-up' : 'tr-ticker-down'}>{pct}</span>}
+                <div key={`${q.symbol}-${i}`} className="ln-ticker-item">
+                  <span className="ln-ticker-sym">{q.symbol}</span>
+                  <span className="ln-ticker-px">{price}</span>
+                  {pct && <span className={up ? 'ln-ticker-up' : 'ln-ticker-dn'}>{pct}</span>}
                 </div>
               );
             })}
@@ -96,274 +265,277 @@ const Landing: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero */}
-      <section className="tr-hero">
-        <h1 className="tr-hero-h1">
-          Trade Smarter.<br />
-          Start <span className="tr-accent">For Free.</span>
-        </h1>
-        <p className="tr-hero-sub">
-          An ML-powered trading platform built for the next generation of investors.
-          Paper trade, backtest, and grow.
-        </p>
-        <div className="tr-hero-ctas">
-          <Link to="/login" className="tr-btn-primary">Launch Terminal</Link>
-          <a href="#how" className="tr-btn-ghost">View How It Works &nbsp;→</a>
-        </div>
-      </section>
+      <main>
 
-      {/* Chart Visual */}
-      <div className="tr-chart-section">
-        <div className="tr-chart-container">
-          <div className="tr-chart-topbar">
-            <span><span className="tr-chart-ticker">TSLA</span> &nbsp;·&nbsp; 1D</span>
-            <span className="tr-chart-price">{tsla ? `$${tsla.price.toFixed(2)}` : '$—'}</span>
-            <span className="tr-chart-change">
-              {tsla ? `${tsla.change_percent >= 0 ? '▲' : '▼'} ${Math.abs(tsla.change_percent).toFixed(2)}%` : '—'}
-            </span>
-            <span>ML Signal: <span className="tr-chart-signal">LONG ↑</span></span>
-          </div>
-          <div className="tr-chart-body">
-            <svg viewBox="0 0 780 280" preserveAspectRatio="none" className="tr-chart-svg">
-              <defs>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10B981" />
-                  <stop offset="100%" stopColor="transparent" />
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="70"  x2="780" y2="70"  stroke="#1E2328" strokeWidth="1"/>
-              <line x1="0" y1="140" x2="780" y2="140" stroke="#1E2328" strokeWidth="1"/>
-              <line x1="0" y1="210" x2="780" y2="210" stroke="#1E2328" strokeWidth="1"/>
-              <path d="M0,200 C60,180 100,160 140,140 C180,120 200,130 240,110 C280,90 310,100 350,80 C390,60 420,90 460,70 C500,50 530,80 570,60 C610,40 650,70 700,50 C730,38 760,44 780,40 L780,280 L0,280 Z"
-                fill="url(#areaGrad)" opacity="0.25"/>
-              <path d="M0,200 C60,180 100,160 140,140 C180,120 200,130 240,110 C280,90 310,100 350,80 C390,60 420,90 460,70 C500,50 530,80 570,60 C610,40 650,70 700,50 C730,38 760,44 780,40"
-                fill="none" stroke="#10B981" strokeWidth="2"/>
-              {CANDLES.map(([x, y, color]) => (
-                <rect key={x} x={x} y={y} width={8} height={20} fill={color} opacity={0.8} />
-              ))}
-            </svg>
-            <div className="tr-chart-fade" />
-          </div>
-        </div>
-      </div>
-
-      {/* Features */}
-      <section id="features" className="tr-features">
-        <div className="tr-features-grid">
-          {FEATURES.map(f => (
-            <div key={f.title} className="tr-feature-card">
-              <h3 className="tr-feature-title">{f.title}</h3>
-              <p className="tr-feature-body">{f.body}</p>
+        {/* ── HERO ── */}
+        <section className="ln-hero">
+          <div className="ln-hero-inner">
+            <p className="ln-eyebrow ln-anim ln-anim--1">PAPER TRADING · AI PREDICTIONS · REAL DATA</p>
+            <h1 className="ln-hero-h1 ln-anim ln-anim--2">
+              Your trading edge,<br />before you go live.
+            </h1>
+            <p className="ln-hero-sub ln-anim ln-anim--3">
+              Practice with $100K in simulated capital. ML-powered price forecasts.
+              Backtest any strategy against real historical data. Zero risk.
+            </p>
+            <div className="ln-hero-ctas ln-anim ln-anim--4">
+              <Link to="/login" className="ln-btn-primary ln-btn-hero">Create free account</Link>
+              <Link to="/login" className="ln-btn-outline ln-btn-hero">Try demo →</Link>
             </div>
-          ))}
-        </div>
-      </section>
-
-
-      {/* Risk-Free Pitch */}
-      <section className="tr-riskfree">
-        <div className="tr-section-label">Zero Risk</div>
-        <h2 className="tr-riskfree-h2">
-          No Real Money.<br />
-          <span className="tr-accent">Ever.</span>
-        </h2>
-        <p className="tr-riskfree-sub">
-          TradeRookie is a pure learning environment. There is no way to deposit,
-          lose, or risk real money — by design.
-        </p>
-        <div className="tr-riskfree-grid">
-          {[
-            { icon: '🔒', title: 'No Deposits', body: 'You never connect a bank account or enter payment info. $100K virtual cash is credited instantly on signup.' },
-            { icon: '📉', title: 'Losses Stay Virtual', body: 'Bad trade? You learn from it. Close the position, review what happened, and start fresh. No real consequences.' },
-            { icon: '🧠', title: 'Learn Before You Burn', body: 'Practice ML-powered strategies, run backtests, and build conviction before you ever touch a real brokerage.' },
-            { icon: '🎯', title: 'Built for Beginners', body: 'No jargon walls. No overwhelming options chains. Just a clean terminal for learning the fundamentals that matter.' },
-          ].map(c => (
-            <div key={c.title} className="tr-riskfree-card">
-              <div className="tr-riskfree-icon">{c.icon}</div>
-              <h4>{c.title}</h4>
-              <p>{c.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Comparison Table */}
-      <section className="tr-compare">
-        <div className="tr-compare-header">
-          <div className="tr-section-label">How We Stack Up</div>
-          <h2 className="tr-compare-h2">Honest Comparison</h2>
-          <p className="tr-compare-sub">We only highlighted things that are genuinely true about each platform.</p>
-        </div>
-        <table className="tr-compare-table">
-          <thead>
-            <tr>
-              <th className="tr-col-feature">Feature</th>
-              <th className="tr-col-us">TradeRookie</th>
-              <th>Robinhood</th>
-              <th>Webull</th>
-              <th>ThinkorSwim</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              {
-                feature: 'Paper Trading',
-                us: '✓ Full',
-                rh: '⚠ Options only',
-                wb: '✓ Full ($1M virtual)',
-                tos: '✓ Full ($100K virtual)',
-              },
-              {
-                feature: 'ML Price Predictions',
-                us: '✓ LSTM model, F1 = 0.77',
-                rh: '✗ None',
-                wb: '⚠ AI market insights (not forecasts)',
-                tos: '✗ None',
-              },
-              {
-                feature: 'Strategy Backtesting',
-                us: '✓ Built-in',
-                rh: '✗ None',
-                wb: '⚠ Added via 3rd party (2026)',
-                tos: '✓ Advanced (thinkBack, OnDemand)',
-              },
-              {
-                feature: 'Price Alerts',
-                us: '✓',
-                rh: '✓',
-                wb: '✓',
-                tos: '✓',
-              },
-              {
-                feature: 'Free to Use',
-                us: '✓ Always',
-                rh: '✓ Commission-free',
-                wb: '✓ Commission-free',
-                tos: '✓ Free platform',
-              },
-              {
-                feature: 'Real Money Required',
-                us: '✗ Never',
-                rh: '⚠ To trade live',
-                wb: '⚠ To trade live',
-                tos: '⚠ To trade live',
-              },
-              {
-                feature: 'Educational Focus',
-                us: '✓ Primary purpose',
-                rh: '⚠ Secondary (Learn hub)',
-                wb: '⚠ Secondary (library)',
-                tos: '⚠ Secondary (200+ videos)',
-              },
-            ].map(row => (
-              <tr key={row.feature}>
-                <td className="tr-col-feature">{row.feature}</td>
-                <td className="tr-col-us">
-                  <span className={row.us.startsWith('✓') ? 'tr-check' : row.us.startsWith('✗') ? 'tr-cross' : 'tr-partial'}>
-                    {row.us}
-                  </span>
-                </td>
-                <td>
-                  <span className={row.rh.startsWith('✓') ? 'tr-check' : row.rh.startsWith('✗') ? 'tr-cross' : 'tr-partial'}>
-                    {row.rh}
-                  </span>
-                </td>
-                <td>
-                  <span className={row.wb.startsWith('✓') ? 'tr-check' : row.wb.startsWith('✗') ? 'tr-cross' : 'tr-partial'}>
-                    {row.wb}
-                  </span>
-                </td>
-                <td>
-                  <span className={row.tos.startsWith('✓') ? 'tr-check' : row.tos.startsWith('✗') ? 'tr-cross' : 'tr-partial'}>
-                    {row.tos}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="tr-compare-note">
-          ✓ = Available &nbsp;·&nbsp; ✗ = Not available &nbsp;·&nbsp; ⚠ = Partial or limited &nbsp;·&nbsp;
-          Data based on publicly available platform information as of early 2026.
-          Robinhood paper trading limited to options simulation only.
-          Webull backtesting added via Level2 partnership Jan 2026.
-        </p>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="tr-pricing">
-        <div className="tr-section-label">Pricing</div>
-        <h2 className="tr-pricing-h2">Simple, Transparent Pricing</h2>
-        <p className="tr-pricing-sub">Everything is free. No hidden fees, no credit card required.</p>
-        <div className="tr-pricing-grid">
-          {[
-            {
-              name: 'Starter',
-              price: '$0',
-              period: 'forever',
-              desc: 'Everything you need to start learning the markets.',
-              features: ['$100K virtual portfolio', 'Live market data', 'ML price predictions', 'Basic backtesting', 'Price alerts'],
-              cta: 'Get Started',
-              highlight: false,
-            },
-            {
-              name: 'Pro',
-              price: '$0',
-              period: 'while in beta',
-              desc: 'Advanced tools for serious learners. Free during our beta.',
-              features: ['Everything in Starter', 'Advanced backtesting', 'Multi-ticker watchlists', 'Portfolio analytics', 'Priority support'],
-              cta: 'Launch Terminal',
-              highlight: true,
-            },
-            {
-              name: 'Enterprise',
-              price: 'Custom',
-              period: 'contact us',
-              desc: 'For schools, bootcamps, and trading communities.',
-              features: ['Everything in Pro', 'Team portfolios', 'Instructor dashboard', 'Custom branding', 'Dedicated support'],
-              cta: 'Contact Us',
-              highlight: false,
-            },
-          ].map(plan => (
-            <div key={plan.name} className={`tr-pricing-card${plan.highlight ? ' tr-pricing-card--highlight' : ''}`}>
-              {plan.highlight && <div className="tr-pricing-badge">Most Popular</div>}
-              <div className="tr-pricing-name">{plan.name}</div>
-              <div className="tr-pricing-price">
-                {plan.price}
-                <span className="tr-pricing-period"> / {plan.period}</span>
+            <p className="ln-hero-note ln-anim ln-anim--4">No credit card. No real money. Ever.</p>
+            <div className="ln-hero-stats ln-anim ln-anim--5">
+              <div className="ln-hero-stat">
+                <span className="ln-hero-stat-val">$100K</span>
+                <span className="ln-hero-stat-lbl">Starting capital</span>
               </div>
-              <p className="tr-pricing-desc">{plan.desc}</p>
-              <ul className="tr-pricing-features">
-                {plan.features.map(f => (
-                  <li key={f}><span className="tr-check">✓</span> {f}</li>
-                ))}
-              </ul>
-              <Link to="/login" className={plan.highlight ? 'tr-btn-primary' : 'tr-btn-outline'}>{plan.cta}</Link>
+              <div className="ln-hero-stat-div" />
+              <div className="ln-hero-stat">
+                <span className="ln-hero-stat-val">20+</span>
+                <span className="ln-hero-stat-lbl">Tickers tracked</span>
+              </div>
+              <div className="ln-hero-stat-div" />
+              <div className="ln-hero-stat">
+                <span className="ln-hero-stat-val">3</span>
+                <span className="ln-hero-stat-lbl">Backtest strategies</span>
+              </div>
+              <div className="ln-hero-stat-div" />
+              <div className="ln-hero-stat">
+                <span className="ln-hero-stat-val">Free</span>
+                <span className="ln-hero-stat-lbl">To start</span>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* CTA */}
-      <section id="cta" className="tr-cta">
-        <h2 className="tr-cta-h2">
-          Ready to Start Your<br />
-          <span className="tr-accent">Trading Journey?</span>
-        </h2>
-        <Link to="/login" className="tr-btn-outline">Create Free Account</Link>
-      </section>
+        {/* ── FEATURES ── */}
+        <section id="features" className="ln-features">
+          <div className="ln-section-inner">
+            <p className="ln-eyebrow">WHAT YOU GET</p>
+            <h2 className="ln-section-h2">Everything you need<br />to trade with confidence.</h2>
+            <div className="ln-feat-grid">
+              {FEATURES.map(f => (
+                <div key={f.num} className="ln-feat-card">
+                  <span className="ln-feat-num">{f.num}</span>
+                  <h3 className="ln-feat-title">{f.title}</h3>
+                  <p className="ln-feat-desc">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-      {/* Footer */}
-      <footer className="tr-footer">
-        <span>© {new Date().getFullYear()} TradeRookie · All rights reserved</span>
-        <div className="tr-footer-links">
-          <a href="#">Legal</a>
-          <a href="#">Privacy</a>
-          <a href="#">API</a>
+        {/* ── HOW IT WORKS ── */}
+        <section id="how" className="ln-how">
+          <div className="ln-section-inner">
+            <p className="ln-eyebrow">HOW IT WORKS</p>
+            <h2 className="ln-section-h2">Up and running<br />in minutes.</h2>
+            <div className="ln-steps">
+              {[
+                { n: '01', title: 'Create a free account', desc: 'Sign up in seconds or jump straight in with the demo account. No credit card needed.' },
+                { n: '02', title: 'Explore the market', desc: 'Browse live quotes, check AI predictions, build your watchlist, and set price alerts.' },
+                { n: '03', title: 'Trade and improve', desc: 'Execute paper trades, backtest strategies, and measure your performance over time.' },
+              ].map(s => (
+                <div key={s.n} className="ln-step">
+                  <div className="ln-step-bg-num">{s.n}</div>
+                  <div className="ln-step-content">
+                    <div className="ln-step-num">{s.n}</div>
+                    <h3 className="ln-step-title">{s.title}</h3>
+                    <p className="ln-step-desc">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── LIVE PREVIEW ── */}
+        <section className="ln-preview">
+          <div className="ln-section-inner">
+            <p className="ln-eyebrow ln-eyebrow--light">LIVE DATA</p>
+            <h2 className="ln-section-h2 ln-section-h2--light">Real prices.<br />Right now.</h2>
+            <p className="ln-preview-sub">The same data feed powering your portfolio — live from Yahoo Finance &amp; Finnhub.</p>
+            <div className="ln-chart-shell">
+              <Link to="/stock/AAPL" className="ln-chart-header ln-chart-header--link">
+                <div>
+                  <div className="ln-chart-ticker">
+                    AAPL
+                    {aaplQuote && (
+                      <span className="ln-chart-name"> · {aaplQuote.company_name || 'Apple Inc.'}</span>
+                    )}
+                  </div>
+                  <div className={`ln-chart-change ${chartUp ? 'ln-chart-change--up' : 'ln-chart-change--dn'}`}>
+                    {aaplQuote
+                      ? `${chartUp ? '▲' : '▼'} ${Math.abs(aaplQuote.change_percent).toFixed(2)}% TODAY`
+                      : 'LOADING…'}
+                  </div>
+                </div>
+                <div className={`ln-chart-price ${chartUp ? 'ln-chart-price--up' : 'ln-chart-price--dn'}`}>
+                  {aaplQuote ? `$${aaplQuote.price.toFixed(2)}` : '—'}
+                </div>
+              </Link>
+              <div
+                className="ln-chart-body"
+                role="group"
+                aria-label="Apple stock price preview — drag or hover on the chart for date and close"
+              >
+                {aaplLine ? (
+                  <>
+                    <svg
+                      viewBox="0 0 800 160"
+                      preserveAspectRatio="none"
+                      className="ln-chart-svg ln-chart-svg--interactive"
+                      onMouseMove={onChartMouseMove}
+                      onMouseLeave={() => setHoverIdx(null)}
+                      onTouchMove={onChartTouch}
+                      onTouchEnd={() => setHoverIdx(null)}
+                      role="img"
+                      aria-label="AAPL closing prices over the selected range"
+                    >
+                      <defs>
+                        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={strokeCol} stopOpacity="0.25" />
+                          <stop offset="100%" stopColor={strokeCol} stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <path d={aaplArea} fill={`url(#${gradId})`} />
+                      <path d={aaplLine} fill="none" stroke={strokeCol} strokeWidth="2.5" />
+                      {hoverPt && (
+                        <g className="ln-chart-crosshair" pointerEvents="none">
+                          <line
+                            x1={hoverPt.x}
+                            y1={0}
+                            x2={hoverPt.x}
+                            y2={160}
+                            stroke="rgba(255,255,255,0.2)"
+                            strokeWidth="1"
+                          />
+                          <circle cx={hoverPt.x} cy={hoverPt.y} r="5" fill={strokeCol} stroke="#000" strokeWidth="1.5" />
+                        </g>
+                      )}
+                    </svg>
+                    {hoverPt && (
+                      <div
+                        className="ln-chart-tooltip"
+                        style={{ left: `${(hoverPt.x / 800) * 100}%` }}
+                      >
+                        <span className="ln-chart-tooltip-date">{formatChartDate(hoverPt.date)}</span>
+                        <span className="ln-chart-tooltip-price">${hoverPt.close.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="ln-chart-placeholder">LOADING CHART DATA…</div>
+                )}
+              </div>
+              <div className="ln-chart-footer">
+                <Link to="/stock/AAPL" className="ln-chart-ai-badge ln-chart-ai-badge--link">
+                  🧠 AI MODEL · 30-DAY FORECAST ON STOCK DETAIL →
+                </Link>
+                <div className="ln-chart-period-btns" role="group" aria-label="Chart range">
+                  {PREVIEW_PERIODS.map(({ api, label }) => (
+                    <button
+                      key={api}
+                      type="button"
+                      className={`ln-chart-period-btn${previewPeriod === api ? ' ln-chart-period-btn--on' : ''}`}
+                      onClick={() => setPreviewPeriod(api)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── PRICING ── */}
+        <section id="pricing" className="ln-pricing">
+          <div className="ln-section-inner">
+            <p className="ln-eyebrow">PRICING</p>
+            <h2 className="ln-section-h2">Simple, transparent pricing.</h2>
+            <div className="ln-price-grid">
+              <div className="ln-price-card">
+                <div className="ln-price-tier">FREE</div>
+                <div className="ln-price-amount">$0</div>
+                <div className="ln-price-period">forever</div>
+                <ul className="ln-price-features">
+                  <li>$100K paper trading capital</li>
+                  <li>Live market quotes</li>
+                  <li>Watchlist &amp; price alerts</li>
+                  <li>Sector heatmap</li>
+                  <li>Trade history &amp; CSV export</li>
+                </ul>
+                <Link to="/login" className="ln-price-cta">Get started</Link>
+              </div>
+              <div className="ln-price-card ln-price-card--featured">
+                <div className="ln-price-tier">PRO</div>
+                <div className="ln-price-amount">$9</div>
+                <div className="ln-price-period">per month</div>
+                <ul className="ln-price-features">
+                  <li>Everything in Free</li>
+                  <li>AI price predictions</li>
+                  <li>Strategy backtesting</li>
+                  <li>Options chain data</li>
+                  <li>Priority data refresh</li>
+                </ul>
+                <Link to="/login" className="ln-price-cta ln-price-cta--featured">Start free trial</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="ln-faq">
+          <div className="ln-section-inner ln-section-inner--narrow">
+            <p className="ln-eyebrow">FAQ</p>
+            <h2 className="ln-section-h2">Questions answered.</h2>
+            <div className="ln-faq-list">
+              {FAQ_ITEMS.map(item => <FaqItem key={item.q} {...item} />)}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FINAL CTA ── */}
+        <section className="ln-final-cta">
+          <div className="ln-section-inner">
+            <h2 className="ln-final-h2">Ready to sharpen<br />your edge?</h2>
+            <p className="ln-final-sub">Join traders practicing with real data, zero risk.</p>
+            <div className="ln-final-actions">
+              <Link to="/login" className="ln-btn-dark ln-btn-hero">Create free account</Link>
+              <Link to="/login" className="ln-btn-dark-outline ln-btn-hero">Try demo first →</Link>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      {/* ── FOOTER ── */}
+      <footer className="ln-footer">
+        <div className="ln-footer-inner">
+          <div className="ln-footer-brand">
+            <span className="ln-footer-logo">STOCKSAGE</span>
+            <p className="ln-footer-disclaimer">
+              Simulator only — for education and practice. Not investment advice.
+              Market data may be delayed.
+            </p>
+          </div>
+          <div className="ln-footer-col">
+            <span className="ln-footer-col-head">PLATFORM</span>
+            <Link to="/dashboard">Market</Link>
+            <Link to="/watchlist">Watchlist</Link>
+            <Link to="/intel">Intel</Link>
+          </div>
+          <div className="ln-footer-col">
+            <span className="ln-footer-col-head">LEGAL</span>
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+            <a href="#">API</a>
+          </div>
         </div>
-        <span className="tr-footer-live">
-          <span className="tr-badge-dot" /> Live Feed
-        </span>
+        <div className="ln-footer-bar">
+          <span>© {new Date().getFullYear()} STOCKSAGE</span>
+          <span>PAPER_TRADING_MODE — NO REAL MONEY</span>
+        </div>
       </footer>
 
     </div>

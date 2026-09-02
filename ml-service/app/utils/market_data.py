@@ -1,40 +1,65 @@
+import time
 import yfinance as yf
 import pandas as pd
-from typing import List, Optional
+from typing import List
 from app.models.schemas import QuoteResponse, HistoryPoint, SearchResult
+from app.utils.finnhub_client import get_client
+
+# Simple in-memory quote cache — 60s TTL to stay within Finnhub's 60 req/min free limit
+_quote_cache: dict = {}
+_QUOTE_TTL = 60  # seconds
+
+def _cache_get(key: str):
+    entry = _quote_cache.get(key)
+    if entry and time.time() - entry['ts'] < _QUOTE_TTL:
+        return entry['val']
+    return None
+
+def _cache_set(key: str, val):
+    _quote_cache[key] = {'val': val, 'ts': time.time()}
+
 
 def get_stock_quote(ticker: str) -> QuoteResponse:
+    cached = _cache_get(ticker)
+    if cached:
+        return cached
+
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
+        fh = get_client()
+        quote = fh.quote(ticker)
+        profile = fh.company_profile2(symbol=ticker)
 
-        current_price = info.get('regularMarketPrice') or info.get('currentPrice') or 0.0
-        prev_close = info.get('regularMarketPreviousClose') or info.get('previousClose') or current_price
-        change = current_price - prev_close
-        change_percent = (change / prev_close * 100) if prev_close != 0 else 0.0
+        price = quote.get('c') or 0.0
+        prev_close = quote.get('pc') or price
+        change = round(price - prev_close, 2)
+        change_percent = round((change / prev_close * 100) if prev_close else 0.0, 2)
 
-        return QuoteResponse(
+        result = QuoteResponse(
             symbol=ticker,
-            price=round(current_price, 2),
-            change=round(change, 2),
-            change_percent=round(change_percent, 2),
-            open=info.get('open', 0.0),
-            high=info.get('dayHigh', 0.0),
-            low=info.get('dayLow', 0.0),
-            volume=info.get('volume', 0),
-            market_cap=info.get('marketCap'),
-            pe_ratio=info.get('trailingPE'),
-            dividend_yield=info.get('dividendYield'),
-            company_name=info.get('longName', ticker),
-            description=info.get('longBusinessSummary'),
-            sector=info.get('sector'),
-            industry=info.get('industry')
+            price=round(price, 2),
+            change=change,
+            change_percent=change_percent,
+            open=round(quote.get('o') or 0.0, 2),
+            high=round(quote.get('h') or 0.0, 2),
+            low=round(quote.get('l') or 0.0, 2),
+            volume=int(quote.get('v') or 0),
+            market_cap=int(profile.get('marketCapitalization', 0) * 1_000_000) or None,
+            pe_ratio=None,
+            dividend_yield=None,
+            company_name=profile.get('name', ticker),
+            description=None,
+            sector=profile.get('finnhubIndustry'),
+            industry=profile.get('finnhubIndustry'),
         )
+        _cache_set(ticker, result)
+        return result
     except Exception as e:
         print(f"Error fetching quote for {ticker}: {e}")
         raise ValueError(f"Could not fetch data for {ticker}")
 
+
 def get_stock_history(ticker: str, period: str = "1y") -> List[HistoryPoint]:
+    # Keep yfinance for historical OHLCV — Finnhub free tier is limited here
     try:
         stock = yf.Ticker(ticker)
         df = stock.history(period=period)
@@ -53,6 +78,7 @@ def get_stock_history(ticker: str, period: str = "1y") -> List[HistoryPoint]:
     except Exception as e:
         print(f"Error fetching history for {ticker}: {e}")
         return []
+
 
 # Expanded fallback ticker list
 _FALLBACK_TICKERS = [
@@ -108,26 +134,27 @@ _FALLBACK_TICKERS = [
     {"symbol": "MS", "name": "Morgan Stanley"},
 ]
 
+
 def search_tickers(query: str) -> List[SearchResult]:
     query_upper = query.upper()
 
-    # Try yfinance's built-in search first (fast, no rate limits)
+    # Try Finnhub symbol search
     try:
-        search = yf.Search(query, max_results=8)
-        quotes = search.quotes
-        if quotes:
-            results = []
-            for q in quotes:
-                symbol = q.get('symbol', '')
-                name = q.get('longname') or q.get('shortname') or symbol
-                if symbol:
-                    results.append(SearchResult(symbol=symbol, name=name))
-            if results:
-                return results[:10]
+        fh = get_client()
+        results_raw = fh.symbol_search(query)
+        results = []
+        for r in (results_raw.get('result') or []):
+            symbol = r.get('symbol', '')
+            name = r.get('description', symbol)
+            # Filter to US common stocks only
+            if symbol and r.get('type') == 'Common Stock' and '.' not in symbol:
+                results.append(SearchResult(symbol=symbol, name=name))
+        if results:
+            return results[:10]
     except Exception:
         pass
 
-    # Fallback: filter the expanded local list
+    # Fallback: filter local list
     results = []
     for t in _FALLBACK_TICKERS:
         if query_upper in t["symbol"] or query_upper in t["name"].upper():

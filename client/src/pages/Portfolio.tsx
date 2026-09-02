@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 
-const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316'];
+const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#FF7070', '#EC4899', '#14B8A6', '#F97316'];
 
 type SortKey = 'ticker' | 'shares' | 'value' | 'pl';
 type SortDir = 'asc' | 'desc';

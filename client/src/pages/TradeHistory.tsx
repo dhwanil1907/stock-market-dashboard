@@ -21,6 +21,10 @@ const TradeHistory: React.FC = () => {
     ? trades.filter(t => t.ticker.includes(filter.toUpperCase()))
     : trades;
 
+  const buys = filtered.filter(t => t.action === 'BUY').length;
+  const sells = filtered.filter(t => t.action === 'SELL').length;
+  const notion = filtered.reduce((s, t) => s + (t.quantity ?? 0) * (t.price ?? 0), 0);
+
   const exportCsv = () => {
     const header = 'Ticker,Action,Quantity,Price,Type,Status,Date\n';
     const rows = filtered.map(t =>
@@ -38,26 +42,45 @@ const TradeHistory: React.FC = () => {
 
   return (
     <div>
-      <div className="t-page-header">
-        <span className="t-section-title t-mb-0">TRADE_HISTORY</span>
-        <div className="t-page-actions">
-          <span className="t-page-meta">{filtered.length} RECORD{filtered.length !== 1 ? 'S' : ''}</span>
-          <button type="button" className="t-btn t-btn-ghost" onClick={exportCsv}>
-            <Download size={10} /> EXPORT_CSV
-          </button>
+      <h1 className="t-page-hero-title">HISTORY</h1>
+
+      <div className="th-stats-row">
+        <div className="th-stat-card">
+          <div className="th-stat-label">TOTAL TRADES</div>
+          <div className="th-stat-value">{filtered.length}</div>
+        </div>
+        <div className="th-stat-card">
+          <div className="th-stat-label">BUY ORDERS</div>
+          <div className="th-stat-value t-green">{buys}</div>
+        </div>
+        <div className="th-stat-card">
+          <div className="th-stat-label">SELL ORDERS</div>
+          <div className="th-stat-value t-red">{sells}</div>
+        </div>
+        <div className="th-stat-card">
+          <div className="th-stat-label">NOTIONAL (FILTERED)</div>
+          <div className="th-stat-value t-green">${notion.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
         </div>
       </div>
 
       <div className="t-card-bare">
         <div className="th-filter-bar">
-          <span className="t-card-label t-mb-0">FILTER</span>
-          <input
-            type="text"
-            className="t-input th-filter-input"
-            placeholder="TICKER..."
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-          />
+          <div className="th-filter-bar-left">
+            <span className="t-card-label t-mb-0">FILTER</span>
+            <input
+              type="text"
+              className="t-input th-filter-input"
+              placeholder="SEARCH_MARKETS..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </div>
+          <div className="t-page-actions">
+            <span className="t-page-meta">{filtered.length} RECORD{filtered.length !== 1 ? 'S' : ''}</span>
+            <button type="button" className="t-btn t-btn-ghost" onClick={exportCsv}>
+              <Download size={10} /> EXPORT
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -90,8 +113,8 @@ const TradeHistory: React.FC = () => {
                     </span>
                   </td>
                   <td>{t.quantity}</td>
-                  <td>${t.price?.toFixed(2)}</td>
-                  <td>${(t.quantity * t.price).toFixed(2)}</td>
+                  <td>${t.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td>${(t.quantity * t.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td className="t-muted2">{t.order_type}</td>
                   <td>
                     <span className={t.status === 'FILLED' ? 't-green' : 't-yellow'}>

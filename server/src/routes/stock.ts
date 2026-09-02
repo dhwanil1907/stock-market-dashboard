@@ -4,6 +4,21 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+const FINNHUB_BASE = 'https://finnhub.io/api/v1';
+
+// News cache — 5 min TTL to avoid burning Finnhub quota
+const newsCache = new Map<string, { data: object[]; ts: number }>();
+const NEWS_TTL = 5 * 60 * 1000;
+
+function getCachedNews(key: string) {
+    const entry = newsCache.get(key);
+    if (entry && Date.now() - entry.ts < NEWS_TTL) return entry.data;
+    return null;
+}
+function setCachedNews(key: string, data: object[]) {
+    newsCache.set(key, { data, ts: Date.now() });
+}
 
 // Simple in-memory rate limiter for prediction endpoint
 const predictRateMap = new Map<number, number[]>();
@@ -37,9 +52,8 @@ router.get('/quotes/batch', async (req, res) => {
                 if (r.status !== 'fulfilled') return null;
                 const meta = r.value.data?.chart?.result?.[0]?.meta;
                 if (!meta) return null;
-                const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? 0;
-                const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
-                const change_percent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+                const result = r.value.data?.chart?.result?.[0];
+                const { price, change_percent } = yahooQuoteMetrics(meta, result);
                 return { symbol: symbols[i], price, change_percent };
             })
             .filter(Boolean);
@@ -58,37 +72,97 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// ── News: parse Yahoo Finance RSS (no API key required) ──
+// ── News: Finnhub company news or general market news ──
 router.get('/news', async (req, res) => {
     const ticker = (req.query.ticker as string || '').toUpperCase();
-    const url = ticker
-        ? `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${ticker}&region=US&lang=en-US`
-        : 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL,TSLA,NVDA,MSFT,SPY&region=US&lang=en-US';
+    const cacheKey = ticker || 'general';
+    const cached = getCachedNews(cacheKey);
+    if (cached) return res.json(cached);
+
     try {
-        const xmlRes = await axios.get(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const xml: string = xmlRes.data;
-        // Lightweight parse — no external xml lib needed
-        const items: object[] = [];
-        const itemMatches = xml.matchAll(/<item>([\s\S]*?)<\/item>/g);
-        for (const m of itemMatches) {
-            const block = m[1];
-            const get = (tag: string) => {
-                const match = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([^<]*)<\\/${tag}>`));
-                return match ? (match[1] || match[2] || '').trim() : '';
-            };
-            items.push({
-                title:   get('title'),
-                link:    get('link'),
-                pubDate: get('pubDate'),
-                source:  get('source') || 'Yahoo Finance',
+        let items: object[] = [];
+
+        if (ticker) {
+            // Company-specific news — last 7 days
+            const to = new Date().toISOString().slice(0, 10);
+            const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+            const r = await axios.get(`${FINNHUB_BASE}/company-news`, {
+                params: { symbol: ticker, from, to, token: FINNHUB_KEY },
+                timeout: 8000,
             });
-            if (items.length >= 30) break;
+            items = (r.data as any[]).slice(0, 30).map(n => ({
+                title:   n.headline,
+                link:    n.url,
+                pubDate: new Date(n.datetime * 1000).toISOString(),
+                source:  n.source || 'Finnhub',
+                image:   n.image || null,
+                summary: n.summary || null,
+            }));
+        } else {
+            // General market news
+            const r = await axios.get(`${FINNHUB_BASE}/news`, {
+                params: { category: 'general', token: FINNHUB_KEY },
+                timeout: 8000,
+            });
+            items = (r.data as any[]).slice(0, 30).map(n => ({
+                title:   n.headline,
+                link:    n.url,
+                pubDate: new Date(n.datetime * 1000).toISOString(),
+                source:  n.source || 'Finnhub',
+                image:   n.image || null,
+                summary: n.summary || null,
+            }));
         }
+
+        setCachedNews(cacheKey, items);
         res.json(items);
-    } catch {
+    } catch (err: any) {
         res.status(503).json({ error: 'News feed unavailable' });
     }
 });
+
+/** Day change vs prior close: prefer previous daily bar close over chartPreviousClose (often mismatched on multi-day ranges). */
+function yahooQuoteMetrics(meta: any, result: any) {
+    const closes: number[] =
+        result?.indicators?.quote?.[0]?.close?.filter((c: any) => typeof c === 'number' && !Number.isNaN(c)) ?? [];
+    let price = Number(meta?.regularMarketPrice);
+    if (!Number.isFinite(price)) {
+        price = closes.length ? closes[closes.length - 1] : NaN;
+    }
+    if (!Number.isFinite(price)) {
+        price = Number(meta?.chartPreviousClose ?? meta?.previousClose ?? 0) || 0;
+    }
+    let prevClose = 0;
+    if (closes.length >= 2) {
+        prevClose = closes[closes.length - 2];
+    } else {
+        prevClose = Number(meta?.chartPreviousClose ?? meta?.previousClose ?? 0) || 0;
+    }
+    const change_percent =
+        prevClose && price ? ((price - prevClose) / prevClose) * 100 : 0;
+    const month_return_pct =
+        closes.length >= 2 && closes[0] ? ((closes[closes.length - 1] - closes[0]) / closes[0]) * 100 : 0;
+    return {
+        price,
+        prevClose,
+        change_percent: Number.isFinite(change_percent) ? change_percent : 0,
+        month_return_pct: Number.isFinite(month_return_pct) ? month_return_pct : 0,
+    };
+}
+
+/** Session OHLC from chart: day open = last bar open; hi/lo from meta when present. */
+function yahooSessionFields(meta: any, result: any) {
+    const q = result?.indicators?.quote?.[0];
+    const opens = (q?.open ?? []).filter((x: any) => typeof x === 'number' && !Number.isNaN(x));
+    const dayOpen = opens.length ? opens[opens.length - 1] : null;
+    const high = meta?.regularMarketDayHigh;
+    const low = meta?.regularMarketDayLow;
+    return {
+        open: typeof dayOpen === 'number' && Number.isFinite(dayOpen) ? dayOpen : null,
+        high: typeof high === 'number' && Number.isFinite(high) ? high : null,
+        low: typeof low === 'number' && Number.isFinite(low) ? low : null,
+    };
+}
 
 const SECTOR_ETFS: Record<string, string> = {
     'Technology': 'XLK',
@@ -113,14 +187,9 @@ async function fetchYahooQuote(ticker: string) {
     const result = r.data?.chart?.result?.[0];
     const meta = result?.meta;
     if (!meta) throw new Error('No data');
-    const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? 0;
-    const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
-    const change_percent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-    const closes: number[] = result?.indicators?.quote?.[0]?.close?.filter((c: any) => c != null) ?? [];
-    const month_return_pct = closes.length >= 2
-        ? ((closes[closes.length - 1] - closes[0]) / closes[0]) * 100
-        : 0;
-    return { price, prevClose, change_percent, month_return_pct, meta };
+    const { price, prevClose, change_percent, month_return_pct } = yahooQuoteMetrics(meta, result);
+    const session = yahooSessionFields(meta, result);
+    return { price, prevClose, change_percent, month_return_pct, meta, session };
 }
 
 router.get('/sectors', async (_req, res) => {
@@ -145,15 +214,53 @@ router.get('/sectors', async (_req, res) => {
 router.get('/:ticker/quote', async (req, res) => {
     const ticker = req.params.ticker.toUpperCase();
     try {
-        const { price, change_percent, meta } = await fetchYahooQuote(ticker);
+        const [yahooSettled, mlSettled] = await Promise.allSettled([
+            fetchYahooQuote(ticker),
+            axios.get(`${ML_SERVICE_URL}/market/quote/${ticker}`, { timeout: 8000 }),
+        ]);
+        if (yahooSettled.status !== 'fulfilled') throw new Error('yahoo');
+        const { price, change_percent, meta, session } = yahooSettled.value;
+
+        let open = session.open;
+        let high = session.high;
+        let low = session.low;
+        let marketCap: number | null = typeof meta.marketCap === 'number' && meta.marketCap > 0 ? meta.marketCap : null;
+        let peRatio: number | null = null;
+        let dividendYield: number | null = null;
+        let sector: string | null = null;
+
+        if (mlSettled.status === 'fulfilled') {
+            const q = mlSettled.value.data as Record<string, unknown>;
+            const mo = q.open as number | undefined;
+            const mh = q.high as number | undefined;
+            const ml = q.low as number | undefined;
+            const mc = q.market_cap as number | undefined;
+            if (open == null && typeof mo === 'number' && mo > 0) open = mo;
+            if (high == null && typeof mh === 'number' && mh > 0) high = mh;
+            if (low == null && typeof ml === 'number' && ml > 0) low = ml;
+            if (marketCap == null && typeof mc === 'number' && mc > 0) marketCap = mc;
+            const pe = q.pe_ratio as number | undefined;
+            if (typeof pe === 'number' && Number.isFinite(pe)) peRatio = pe;
+            const dy = q.dividend_yield as number | undefined;
+            if (typeof dy === 'number' && Number.isFinite(dy)) dividendYield = dy;
+            const sec = q.sector as string | undefined;
+            if (sec) sector = sec;
+        }
+
         res.json({
             symbol: ticker,
             name: meta.longName ?? meta.shortName ?? ticker,
             company_name: meta.longName ?? meta.shortName ?? ticker,
             price: +price.toFixed(2),
             change_percent: +change_percent.toFixed(2),
+            open: open != null ? +open.toFixed(2) : null,
+            high: high != null ? +high.toFixed(2) : null,
+            low: low != null ? +low.toFixed(2) : null,
             volume: meta.regularMarketVolume ?? 0,
-            market_cap: meta.marketCap ?? 0,
+            market_cap: marketCap,
+            pe_ratio: peRatio,
+            dividend_yield: dividendYield,
+            sector,
             week_52_high: meta.fiftyTwoWeekHigh ?? 0,
             week_52_low: meta.fiftyTwoWeekLow ?? 0,
         });

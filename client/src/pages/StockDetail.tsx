@@ -14,6 +14,9 @@ import api from '../lib/api';
 
 const PERIODS = ['1d', '5d', '1mo', '3mo', '1y', '5y'];
 
+const fmtPrice = (n: number) =>
+  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const StockDetail: React.FC = () => {
   const { ticker } = useParams<{ ticker: string }>();
   const { token } = useAuthStore();
@@ -106,9 +109,31 @@ const StockDetail: React.FC = () => {
     return { points: [...last30, ...forecastPoints], todayLabel: last30[last30.length - 1]?.date };
   }, [prediction, history]);
 
+  /** Header % = move from first bar in selected range to current (live quote when available). */
+  const headerChangePct = useMemo(() => {
+    const live = quote?.price;
+    const dayPct = quote?.change_percent ?? 0;
+    if (!history.length) return dayPct;
+    const first = history[0]?.close;
+    const lastBar = history[history.length - 1]?.close;
+    const end = typeof live === 'number' && Number.isFinite(live) ? live : lastBar;
+    if (
+      first == null ||
+      end == null ||
+      !Number.isFinite(first) ||
+      !Number.isFinite(end) ||
+      first === 0
+    ) {
+      return dayPct;
+    }
+    if (history.length < 2 && period === '1d') return dayPct;
+    const pct = ((end - first) / first) * 100;
+    return Number.isFinite(pct) ? pct : dayPct;
+  }, [history, quote, period]);
+
   const isUp  = prediction ? prediction.price_change_pct >= 0 : true;
   const rec   = prediction?.recommendation ?? '';
-  const quoteUp = (quote?.change_percent ?? 0) >= 0;
+  const quoteUp = headerChangePct >= 0;
 
   const recColor = rec.includes('BUY') ? 't-green' : rec.includes('SELL') ? 't-red' : 't-yellow';
   const recIcon  = rec.includes('BUY') ? <ArrowUpRight size={24} /> : rec.includes('SELL') ? <ArrowDownRight size={24} /> : <Minus size={24} />;
@@ -135,10 +160,10 @@ const StockDetail: React.FC = () => {
             <div className="t-muted2 sd-company">{quote?.company_name}</div>
           </div>
           <div className="sd-price-block">
-            <div className="sd-price">${quote?.price?.toFixed(2)}</div>
+            <div className="sd-price">{quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'}</div>
             <div className={`sd-change ${quoteUp ? 't-green' : 't-red'}`}>
               {quoteUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {quoteUp ? '+' : ''}{quote?.change_percent?.toFixed(2)}%
+              {quoteUp ? '+' : ''}{headerChangePct.toFixed(2)}%
             </div>
           </div>
         </div>
@@ -178,7 +203,7 @@ const StockDetail: React.FC = () => {
 
             <div className="t-card-bare">
               <div className="pf-chart-wrap">
-                <div className="pf-chart-title">PRICE_HISTORY</div>
+                <div className="pf-chart-title">INTERACTIVE_CHART_V2.1</div>
                 {history.length === 0 ? (
                   <div className="pf-empty t-muted2">No chart data for this period.</div>
                 ) : (
@@ -189,7 +214,7 @@ const StockDetail: React.FC = () => {
                       <YAxis domain={['auto', 'auto']} tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} width={56} />
                       <Tooltip
                         contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
-                        formatter={(v: number) => [`$${v.toFixed(2)}`, '']}
+                        formatter={(v: number) => [`$${fmtPrice(v)}`, '']}
                       />
                       <Line type="monotone" dataKey="close" stroke="#10B981" strokeWidth={1.5} dot={false} />
                       <Bar dataKey="volume" fill="#2A2E33" opacity={0.35} yAxisId="vol" />
@@ -258,10 +283,10 @@ const StockDetail: React.FC = () => {
                     <tbody>
                       {(options[optionsTab] || []).slice(0, 30).map((c: any, i: number) => (
                         <tr key={i} className={c.inTheMoney ? 'sd-itm-row' : ''}>
-                          <td className={c.inTheMoney ? 't-green t-fw7' : ''}>${c.strike?.toFixed(2)}</td>
-                          <td>{c.lastPrice != null ? `$${c.lastPrice.toFixed(2)}` : '—'}</td>
-                          <td className="t-muted2">{c.bid != null ? `$${c.bid.toFixed(2)}` : '—'}</td>
-                          <td className="t-muted2">{c.ask != null ? `$${c.ask.toFixed(2)}` : '—'}</td>
+                          <td className={c.inTheMoney ? 't-green t-fw7' : ''}>{c.strike != null ? `$${fmtPrice(c.strike)}` : '—'}</td>
+                          <td>{c.lastPrice != null ? `$${fmtPrice(c.lastPrice)}` : '—'}</td>
+                          <td className="t-muted2">{c.bid != null ? `$${fmtPrice(c.bid)}` : '—'}</td>
+                          <td className="t-muted2">{c.ask != null ? `$${fmtPrice(c.ask)}` : '—'}</td>
                           <td>{c.volume?.toLocaleString() ?? '—'}</td>
                           <td>{c.openInterest?.toLocaleString() ?? '—'}</td>
                           <td>{c.impliedVolatility != null ? `${c.impliedVolatility.toFixed(1)}%` : '—'}</td>
@@ -325,8 +350,8 @@ const StockDetail: React.FC = () => {
               {/* Stats row */}
               <div className="sd-pred-stats">
                 {[
-                  { label: 'CURRENT',    value: `$${prediction.current_price.toFixed(2)}`, color: '' },
-                  { label: '30D_TARGET', value: `$${prediction.price_target.toFixed(2)}`,  color: isUp ? 't-green' : 't-red' },
+                  { label: 'CURRENT',    value: `$${fmtPrice(prediction.current_price)}`, color: '' },
+                  { label: '30D_TARGET', value: `$${fmtPrice(prediction.price_target)}`,  color: isUp ? 't-green' : 't-red' },
                   { label: 'RSI_14',     value: `${prediction.rsi_value.toFixed(1)}`, color: rsiLabel(prediction.rsi_value).color },
                   { label: 'CONFIDENCE', value: `${(prediction.confidence * 100).toFixed(0)}%`, color: '' },
                 ].map(({ label, value, color }) => (
@@ -345,8 +370,8 @@ const StockDetail: React.FC = () => {
                     <ComposedChart data={predChartData.points}>
                       <defs>
                         <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={isUp ? '#10B981' : '#EF4444'} stopOpacity={0.15} />
-                          <stop offset="95%" stopColor={isUp ? '#10B981' : '#EF4444'} stopOpacity={0} />
+                          <stop offset="5%"  stopColor={isUp ? '#34D399' : '#FF7070'} stopOpacity={0.15} />
+                          <stop offset="95%" stopColor={isUp ? '#34D399' : '#FF7070'} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1E2328" />
@@ -357,14 +382,14 @@ const StockDetail: React.FC = () => {
                         formatter={(v: any, name: string) => {
                           if (v === null) return [null, null];
                           const labels: Record<string, string> = { actual: 'PRICE', forecast: 'FORECAST', upper: 'UPPER', lower: 'LOWER' };
-                          return [`$${Number(v).toFixed(2)}`, labels[name] ?? name];
+                          return [`$${fmtPrice(Number(v))}`, labels[name] ?? name];
                         }}
                       />
                       <ReferenceLine x={predChartData.todayLabel} stroke="#2A2E33" strokeDasharray="4 4" />
                       <Area type="monotone" dataKey="upper" stroke="none" fill="url(#bandGrad)" connectNulls={false} dot={false} legendType="none" />
                       <Area type="monotone" dataKey="lower" stroke="none" fill="white" fillOpacity={0} connectNulls={false} dot={false} legendType="none" />
                       <Line type="monotone" dataKey="actual"   stroke="#6B7280"                        strokeWidth={1.5} dot={false} connectNulls={false} />
-                      <Line type="monotone" dataKey="forecast" stroke={isUp ? '#10B981' : '#EF4444'} strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls={false} />
+                      <Line type="monotone" dataKey="forecast" stroke={isUp ? '#34D399' : '#FF7070'} strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -383,7 +408,7 @@ const StockDetail: React.FC = () => {
                     return (
                       <div key={label} className={`t-card sd-model-card ${highlight ? 'sd-model-card--highlight' : ''}`}>
                         <div className="t-card-label">{label}</div>
-                        <div className={`t-card-value ${up ? 't-green' : 't-red'}`}>${value.toFixed(2)}</div>
+                        <div className={`t-card-value ${up ? 't-green' : 't-red'}`}>${fmtPrice(value)}</div>
                         <div className={`t-card-sub ${up ? 't-green' : 't-red'}`}>
                           {up ? '+' : ''}{(((value - prediction.current_price) / prediction.current_price) * 100).toFixed(1)}%
                         </div>
@@ -417,10 +442,10 @@ const StockDetail: React.FC = () => {
           <table className="t-table">
             <tbody>
               {[
-                ['OPEN',     quote?.open != null ? `$${quote.open.toFixed(2)}` : '—'],
-                ['HIGH',     quote?.high != null ? `$${quote.high.toFixed(2)}` : '—'],
-                ['LOW',      quote?.low  != null ? `$${quote.low.toFixed(2)}`  : '—'],
-                ['VOLUME',   quote?.volume?.toLocaleString() ?? '—'],
+                ['OPEN',     quote?.open != null ? `$${fmtPrice(quote.open)}` : '—'],
+                ['HIGH',     quote?.high != null ? `$${fmtPrice(quote.high)}` : '—'],
+                ['LOW',      quote?.low  != null ? `$${fmtPrice(quote.low)}`  : '—'],
+                ['DAY_VOLUME', quote?.volume?.toLocaleString() ?? '—'],
                 ['MKT_CAP',  quote?.market_cap ? `$${(quote.market_cap / 1e9).toFixed(1)}B` : '—'],
                 ['P/E',      quote?.pe_ratio?.toFixed(2) ?? '—'],
                 ['DIV_YIELD',quote?.dividend_yield ? `${(quote.dividend_yield * 100).toFixed(2)}%` : '—'],
@@ -474,11 +499,11 @@ const StockDetail: React.FC = () => {
               <div className="sd-order-summary">
                 <div className="sd-order-row">
                   <span className="t-muted2">PRICE</span>
-                  <span>${quote?.price?.toFixed(2)}</span>
+                  <span>{quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'}</span>
                 </div>
                 <div className="sd-order-row sd-order-total">
                   <span>EST_TOTAL</span>
-                  <span className="t-green">${(quantity * (quote?.price || 0)).toFixed(2)}</span>
+                  <span className="t-green">${fmtPrice(quantity * (quote?.price || 0))}</span>
                 </div>
               </div>
 
@@ -518,8 +543,8 @@ const StockDetail: React.FC = () => {
                   ['TICKER',   <span className="t-green t-fw7">{ticker}</span>],
                   ['ACTION',   <span className={tradeAction === 'BUY' ? 't-green t-fw7' : 't-red t-fw7'}>{tradeAction}</span>],
                   ['QUANTITY', quantity],
-                  ['PRICE',    `$${quote?.price?.toFixed(2)}`],
-                  ['TOTAL',    <span className="t-green t-fw7">${(quantity * (quote?.price || 0)).toFixed(2)}</span>],
+                  ['PRICE',    quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'],
+                  ['TOTAL',    <span className="t-green t-fw7">${fmtPrice(quantity * (quote?.price || 0))}</span>],
                 ].map(([label, val]) => (
                   <tr key={String(label)}>
                     <td className="t-muted2">{label}</td>
