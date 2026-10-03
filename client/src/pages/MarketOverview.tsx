@@ -1,9 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
-import { TrendingUp, TrendingDown, RefreshCw, Home } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { usePortfolioStore } from '../stores/portfolioStore';
+import { formatPrice, formatVolume } from '../lib/format';
+import { ChangeBadge } from '../components/ui/ChangeBadge';
+import { StatCard } from '../components/ui/StatCard';
+import { DataTable } from '../components/ui/DataTable';
 
 const TICKERS = [
   'AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'JPM',
@@ -13,21 +17,17 @@ const TICKERS = [
 const INDICES = ['SPY', 'QQQ', 'IWM'];
 
 const INDEX_NAMES: Record<string, string> = {
-  SPY: 'S&P 500 ETF TRUST',
-  QQQ: 'INVESCO QQQ TRUST',
-  IWM: 'ISHARES RUSSELL 2000 ETF',
+  SPY: 'S&P 500',
+  QQQ: 'Nasdaq 100',
+  IWM: 'Russell 2000',
 };
-
-const fmt = (n: number) => (n?.toFixed(2) ?? '--');
-const fmtUSD = (n: number) => (n != null ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '--');
-const fmtVol = (n: number) => (n != null ? `${(n / 1_000_000).toFixed(1)}M` : '--');
 
 function MiniSpark({ up }: { up: boolean }) {
   const d = up
     ? 'M0,28 L20,24 L36,18 L52,12 L72,6'
     : 'M0,8 L20,12 L36,18 L52,22 L72,28';
   return (
-    <svg className={`mo-index-spark ${up ? 't-green' : 't-red'}`} viewBox="0 0 72 32" preserveAspectRatio="none">
+    <svg className={`mo-index-spark ${up ? 't-green' : 't-red'}`} viewBox="0 0 72 32" preserveAspectRatio="none" aria-hidden>
       <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
@@ -46,7 +46,7 @@ const MarketOverview: React.FC = () => {
     if (showSpin) setRefreshing(true);
     try {
       const results = await Promise.allSettled(
-        TICKERS.map(ticker => api.get(`/stock/${ticker}/quote`).then(r => r.data))
+        TICKERS.map(ticker => api.get(`/stock/${ticker}/quote`).then(r => r.data)),
       );
       const loaded = results
         .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
@@ -73,7 +73,7 @@ const MarketOverview: React.FC = () => {
   const fetchHoldPrices = useCallback(async () => {
     if (!holdings.length) return;
     const entries = await Promise.allSettled(
-      holdings.map(h => api.get(`/stock/${h.ticker}/quote`).then(r => ({ t: h.ticker, p: r.data.price })))
+      holdings.map(h => api.get(`/stock/${h.ticker}/quote`).then(r => ({ t: h.ticker, p: r.data.price }))),
     );
     const p: Record<string, number> = {};
     entries.forEach(r => { if (r.status === 'fulfilled') p[r.value.t] = r.value.p; });
@@ -91,7 +91,8 @@ const MarketOverview: React.FC = () => {
     const cost = holdings.reduce((s, h) => s + h.shares * h.avg_cost, 0);
     const total = cashBalance + mkt;
     const pl = mkt - cost;
-    return { total, pl, mkt };
+    const plPct = cost > 0 ? (pl / cost) * 100 : 0;
+    return { total, pl, plPct, mkt };
   }, [holdings, hPrices, cashBalance]);
 
   const indices = quotes.filter(q => INDICES.includes(q.symbol));
@@ -99,118 +100,107 @@ const MarketOverview: React.FC = () => {
   const gainers = [...stocks].sort((a, b) => (b.change_percent ?? 0) - (a.change_percent ?? 0)).slice(0, 3);
   const losers = [...stocks].sort((a, b) => (a.change_percent ?? 0) - (b.change_percent ?? 0)).slice(0, 3);
 
-  const liveLine = lastUpdated
-    ? `● LIVE FEED // UTC: ${lastUpdated.toISOString().slice(11, 19)}`
-    : '● LIVE FEED // SYNCING…';
+  const liveMeta = lastUpdated
+    ? `Live · updated ${lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+    : 'Syncing quotes…';
 
   return (
-    <div>
-      <div className="mo-page-head">
-        <div>
-          <h1 className="t-page-hero-title">MARKET</h1>
-          <div className="t-live-line">{liveLine}</div>
-        </div>
-        <Link to="/" className="t-btn t-btn-ghost mo-home-btn" title="Landing page">
-          <Home size={14} strokeWidth={1.5} />
-          HOME
-        </Link>
+    <div className="mo-page">
+      <div className="mo-toolbar">
+        <p className="mo-live-meta"><span className="t-dot-live" aria-hidden /> {liveMeta}</p>
+        <button
+          type="button"
+          className="t-btn t-btn-ghost"
+          onClick={() => fetchQuotes(true)}
+          disabled={refreshing}
+        >
+          <RefreshCw size={14} className={refreshing ? 't-spin' : ''} />
+          Refresh
+        </button>
       </div>
 
       {token && (
-        <div className="mo-portfolio-strip">
-          <div className="mo-portfolio-strip-copy">
-            <div className="t-card-label t-mb-0">YOUR PORTFOLIO</div>
-            <div className="mo-portfolio-val">
-              {loading ? '—' : fmtUSD(portfolioMetrics.total)}
-            </div>
-            <div className={`mo-portfolio-chg ${portfolioMetrics.pl >= 0 ? 't-green' : 't-red'}`}>
-              {portfolioMetrics.pl >= 0 ? '▲ +' : '▼ '}
-              {fmtUSD(Math.abs(portfolioMetrics.pl))} vs cost basis
-            </div>
-            <Link to="/portfolio" className="mo-portfolio-link">
-              VIEW PORTFOLIO →
-            </Link>
-          </div>
-          <button
-            type="button"
-            className="t-btn t-btn-ghost"
-            onClick={() => fetchQuotes(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw size={10} className={refreshing ? 't-spin' : ''} />
-            REFRESH
-          </button>
-        </div>
+        <StatCard
+          label="Your portfolio"
+          value={loading ? '—' : formatPrice(portfolioMetrics.total)}
+          sub={(
+            <>
+              <ChangeBadge value={portfolioMetrics.plPct} decimals={2} />
+              <span className="mo-portfolio-sub"> vs cost basis ({formatPrice(Math.abs(portfolioMetrics.pl))})</span>
+            </>
+          )}
+          className="mo-portfolio-stat"
+        />
       )}
 
-      <div className="mo-indices">
-        {INDICES.map(sym => {
-          const q = indices.find(x => x.symbol === sym);
-          const up = (q?.change_percent ?? 0) >= 0;
-          return (
-            <div key={sym} className="t-card mo-index-card">
-              <div className="mo-index-head">
-                <span className="mo-index-name">{sym}</span>
-                {loading ? (
-                  <span className="t-skeleton t-skeleton-md" />
-                ) : (
-                  <span className={`${up ? 't-green' : 't-red'} t-fw7`}>
-                    {up ? '+' : ''}{fmt(q?.change_percent)}%
-                  </span>
-                )}
-              </div>
-              <div className="mo-index-fullname">{INDEX_NAMES[sym] ?? 'ETF'}</div>
-              <div className="mo-index-mid">
-                <div className="t-card-value" style={{ fontSize: '1.35rem' }}>
-                  {loading ? <span className="t-skeleton t-skeleton-md" /> : fmtUSD(q?.price)}
+      {token && (
+        <Link to="/portfolio" className="mo-portfolio-link-inline">View full portfolio</Link>
+      )}
+
+      <section aria-label="Major indices">
+        <h2 className="ui-section-label">Indices</h2>
+        <div className="mo-indices">
+          {INDICES.map(sym => {
+            const q = indices.find(x => x.symbol === sym);
+            const up = (q?.change_percent ?? 0) >= 0;
+            return (
+              <div key={sym} className="mo-index-card">
+                <div className="mo-index-head">
+                  <span className="mo-index-name">{sym}</span>
+                  {!loading && q != null && (
+                    <ChangeBadge value={q.change_percent} decimals={2} />
+                  )}
+                  {loading && <span className="t-skeleton t-skeleton-md" />}
                 </div>
-                {!loading && q && <MiniSpark up={up} />}
+                <div className="mo-index-fullname">{INDEX_NAMES[sym] ?? 'ETF'}</div>
+                <div className="mo-index-mid">
+                  <div className="mo-index-price t-num">
+                    {loading ? <span className="t-skeleton t-skeleton-md" /> : formatPrice(q?.price)}
+                  </div>
+                  {!loading && q && <MiniSpark up={up} />}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </section>
 
       {!loading && (
         <div className="mo-split">
           <div className="mo-split-card">
-            <div className="t-card-label">TOP_GAINERS</div>
+            <h2 className="ui-section-label">Top gainers</h2>
             {gainers.map(q => (
               <Link key={q.symbol} to={`/stock/${q.symbol}`} className="mo-mini-row mo-mini-row--gainer">
                 <span className="mo-mini-symbol">{q.symbol}</span>
-                <span className="mo-mini-chg t-green">+{fmt(q.change_percent)}%</span>
+                <ChangeBadge value={q.change_percent} decimals={2} />
               </Link>
             ))}
           </div>
           <div className="mo-split-card">
-            <div className="t-card-label">TOP_LOSERS</div>
+            <h2 className="ui-section-label">Top losers</h2>
             {losers.map(q => (
               <Link key={q.symbol} to={`/stock/${q.symbol}`} className="mo-mini-row mo-mini-row--loser">
                 <span className="mo-mini-symbol">{q.symbol}</span>
-                <span className="mo-mini-chg t-red">{fmt(q.change_percent)}%</span>
+                <ChangeBadge value={q.change_percent} decimals={2} />
               </Link>
             ))}
           </div>
         </div>
       )}
 
-      <div className="t-card-bare">
-        <div className="mo-table-header">
-          <span className="t-card-label t-mb-0">ALL TICKERS</span>
-          <div className="mo-table-actions">
-            <button type="button" className="t-btn t-btn-ghost">FILTER</button>
-            <button type="button" className="t-btn t-btn-ghost">EXPORT</button>
+      <section aria-label="All tickers">
+        <DataTable bare className="mo-table-card">
+          <div className="mo-table-header">
+            <h2 className="ui-section-label t-mb-0">All tickers</h2>
           </div>
-        </div>
-        <div className="mo-table-wrap">
           <table className="t-table">
             <thead>
               <tr>
-                <th>TICKER</th>
-                <th>PRICE</th>
-                <th>CHANGE</th>
-                <th title="Shares traded in the current trading day">DAY VOLUME</th>
-                <th>ACTION</th>
+                <th>Ticker</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th title="Shares traded today">Day volume</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -222,35 +212,30 @@ const MarketOverview: React.FC = () => {
                       ))}
                     </tr>
                   ))
-                : stocks.map(q => {
-                    const up = (q.change_percent ?? 0) >= 0;
-                    return (
-                      <tr key={q.symbol}>
-                  <td>
-                    <Link to={`/stock/${q.symbol}`} className="mo-sym-link">{q.symbol}</Link>
-                    <span className="mo-company">
-                      {q.company_name?.length > 22
-                        ? `${q.company_name.slice(0, 22)}…`
-                        : q.company_name}
-                    </span>
-                  </td>
-                  <td>{fmtUSD(q.price)}</td>
-                  <td className={`${up ? 't-green' : 't-red'} t-fw7`}>
-                    {up ? '+' : ''}{fmt(q.change_percent)}%
-                  </td>
-                  <td>{fmtVol(q.volume)}</td>
-                  <td>
-                    <Link to={`/stock/${q.symbol}`} className="t-btn t-btn-outline" style={{ padding: '6px 12px', fontSize: '9px' }}>
-                      TRADE
-                    </Link>
-                  </td>
+                : stocks.map(q => (
+                    <tr key={q.symbol}>
+                      <td>
+                        <Link to={`/stock/${q.symbol}`} className="mo-sym-link">{q.symbol}</Link>
+                        <span className="mo-company">
+                          {q.company_name?.length > 22
+                            ? `${q.company_name.slice(0, 22)}…`
+                            : q.company_name}
+                        </span>
+                      </td>
+                      <td className="t-num">{formatPrice(q.price)}</td>
+                      <td><ChangeBadge value={q.change_percent} decimals={2} /></td>
+                      <td className="t-num t-muted">{formatVolume(q.volume)}</td>
+                      <td>
+                        <Link to={`/stock/${q.symbol}`} className="t-btn t-btn-outline mo-trade-btn">
+                          Trade
+                        </Link>
+                      </td>
                     </tr>
-                    );
-                  })}
+                  ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </DataTable>
+      </section>
     </div>
   );
 };

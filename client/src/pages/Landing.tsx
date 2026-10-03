@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Sun, Moon } from 'lucide-react';
+import { useThemeStore } from '../stores/themeStore';
+import { useChartTheme } from '../lib/chartTheme';
 import api from '../lib/api';
 import './landing.css';
+import { Brand } from '../components/ui/Brand';
 
 const TICKERS = [
   'TSLA', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY',
@@ -166,6 +170,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 const Landing: React.FC = () => {
+  const { theme, toggleTheme } = useThemeStore();
+  const chart = useChartTheme();
   const quotes = useTickerPrices();
   const tickerData = quotes.length > 0 ? quotes : TICKERS.map(s => ({ symbol: s, price: 0, change_percent: 0 }));
   const doubled = [...tickerData, ...tickerData];
@@ -175,7 +181,7 @@ const Landing: React.FC = () => {
   const chartGeo = useMemo(() => buildPath(aaplHistory, 800, 160), [aaplHistory]);
   const { line: aaplLine, area: aaplArea, points: chartPoints } = chartGeo;
   const chartUp = aaplQuote ? aaplQuote.change_percent >= 0 : true;
-  const strokeCol = chartUp ? '#10b981' : '#ff7070';
+  const strokeCol = chartUp ? chart.gain : chart.loss;
   const gradId = `ln-area-${previewPeriod}-${chartUp ? 'u' : 'd'}`;
 
   useEffect(() => {
@@ -230,13 +236,21 @@ const Landing: React.FC = () => {
 
       {/* ── NAV ── */}
       <nav className="ln-nav" aria-label="Main">
-        <span className="ln-nav-logo">STOCKSAGE</span>
+        <Link to="/" className="ln-nav-logo"><Brand /></Link>
         <div className="ln-nav-links">
           <a href="#features" className="ln-nav-link">Features</a>
           <a href="#how" className="ln-nav-link">How it works</a>
           <a href="#pricing" className="ln-nav-link">Pricing</a>
         </div>
         <div className="ln-nav-actions">
+          <button
+            type="button"
+            className="ln-theme-btn"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <Link to="/login" className="ln-nav-link">Log in</Link>
           <Link to="/login" className="ln-btn-primary ln-btn-sm">Sign up free</Link>
         </div>
@@ -245,7 +259,7 @@ const Landing: React.FC = () => {
       {/* ── TICKER STRIP ── */}
       <div className="ln-ticker-strip" aria-hidden>
         <div className="ln-ticker-label">
-          <span className="ln-badge-dot" /> LIVE
+          <span className="ln-badge-dot" /> Live
         </div>
         <div className="ln-ticker-overflow">
           <div className="ln-ticker-scroll">
@@ -270,7 +284,7 @@ const Landing: React.FC = () => {
         {/* ── HERO ── */}
         <section className="ln-hero">
           <div className="ln-hero-inner">
-            <p className="ln-eyebrow ln-anim ln-anim--1">PAPER TRADING · AI PREDICTIONS · REAL DATA</p>
+            <p className="ln-eyebrow ln-anim ln-anim--1">Paper trading · AI predictions · real data</p>
             <h1 className="ln-hero-h1 ln-anim ln-anim--2">
               Your trading edge,<br />before you go live.
             </h1>
@@ -310,7 +324,7 @@ const Landing: React.FC = () => {
         {/* ── FEATURES ── */}
         <section id="features" className="ln-features">
           <div className="ln-section-inner">
-            <p className="ln-eyebrow">WHAT YOU GET</p>
+            <p className="ln-eyebrow">What you get</p>
             <h2 className="ln-section-h2">Everything you need<br />to trade with confidence.</h2>
             <div className="ln-feat-grid">
               {FEATURES.map(f => (
@@ -324,10 +338,10 @@ const Landing: React.FC = () => {
           </div>
         </section>
 
-        {/* ── HOW IT WORKS ── */}
+        {/* ── How it works ── */}
         <section id="how" className="ln-how">
           <div className="ln-section-inner">
-            <p className="ln-eyebrow">HOW IT WORKS</p>
+            <p className="ln-eyebrow">How it works</p>
             <h2 className="ln-section-h2">Up and running<br />in minutes.</h2>
             <div className="ln-steps">
               {[
@@ -351,7 +365,7 @@ const Landing: React.FC = () => {
         {/* ── LIVE PREVIEW ── */}
         <section className="ln-preview">
           <div className="ln-section-inner">
-            <p className="ln-eyebrow ln-eyebrow--light">LIVE DATA</p>
+            <p className="ln-eyebrow ln-eyebrow--light">Live data</p>
             <h2 className="ln-section-h2 ln-section-h2--light">Real prices.<br />Right now.</h2>
             <p className="ln-preview-sub">The same data feed powering your portfolio — live from Yahoo Finance &amp; Finnhub.</p>
             <div className="ln-chart-shell">
@@ -365,8 +379,8 @@ const Landing: React.FC = () => {
                   </div>
                   <div className={`ln-chart-change ${chartUp ? 'ln-chart-change--up' : 'ln-chart-change--dn'}`}>
                     {aaplQuote
-                      ? `${chartUp ? '▲' : '▼'} ${Math.abs(aaplQuote.change_percent).toFixed(2)}% TODAY`
-                      : 'LOADING…'}
+                      ? `${chartUp ? '▲' : '▼'} ${Math.abs(aaplQuote.change_percent).toFixed(2)}% today`
+                      : 'Loading…'}
                   </div>
                 </div>
                 <div className={`ln-chart-price ${chartUp ? 'ln-chart-price--up' : 'ln-chart-price--dn'}`}>
@@ -406,10 +420,10 @@ const Landing: React.FC = () => {
                             y1={0}
                             x2={hoverPt.x}
                             y2={160}
-                            stroke="rgba(255,255,255,0.2)"
+                            stroke="var(--color-border-strong)"
                             strokeWidth="1"
                           />
-                          <circle cx={hoverPt.x} cy={hoverPt.y} r="5" fill={strokeCol} stroke="#000" strokeWidth="1.5" />
+                          <circle cx={hoverPt.x} cy={hoverPt.y} r="5" fill={strokeCol} stroke="var(--color-bg)" strokeWidth="1.5" />
                         </g>
                       )}
                     </svg>
@@ -424,12 +438,12 @@ const Landing: React.FC = () => {
                     )}
                   </>
                 ) : (
-                  <div className="ln-chart-placeholder">LOADING CHART DATA…</div>
+                  <div className="ln-chart-placeholder">Loading chart data…</div>
                 )}
               </div>
               <div className="ln-chart-footer">
                 <Link to="/stock/AAPL" className="ln-chart-ai-badge ln-chart-ai-badge--link">
-                  🧠 AI MODEL · 30-DAY FORECAST ON STOCK DETAIL →
+                  AI forecast on stock detail →
                 </Link>
                 <div className="ln-chart-period-btns" role="group" aria-label="Chart range">
                   {PREVIEW_PERIODS.map(({ api, label }) => (
@@ -448,14 +462,14 @@ const Landing: React.FC = () => {
           </div>
         </section>
 
-        {/* ── PRICING ── */}
+        {/* ── Pricing ── */}
         <section id="pricing" className="ln-pricing">
           <div className="ln-section-inner">
-            <p className="ln-eyebrow">PRICING</p>
+            <p className="ln-eyebrow">Pricing</p>
             <h2 className="ln-section-h2">Simple, transparent pricing.</h2>
             <div className="ln-price-grid">
               <div className="ln-price-card">
-                <div className="ln-price-tier">FREE</div>
+                <div className="ln-price-tier">Free</div>
                 <div className="ln-price-amount">$0</div>
                 <div className="ln-price-period">forever</div>
                 <ul className="ln-price-features">
@@ -468,7 +482,7 @@ const Landing: React.FC = () => {
                 <Link to="/login" className="ln-price-cta">Get started</Link>
               </div>
               <div className="ln-price-card ln-price-card--featured">
-                <div className="ln-price-tier">PRO</div>
+                <div className="ln-price-tier">Pro</div>
                 <div className="ln-price-amount">$9</div>
                 <div className="ln-price-period">per month</div>
                 <ul className="ln-price-features">
@@ -513,28 +527,28 @@ const Landing: React.FC = () => {
       <footer className="ln-footer">
         <div className="ln-footer-inner">
           <div className="ln-footer-brand">
-            <span className="ln-footer-logo">STOCKSAGE</span>
+            <Brand tagline="short" className="ln-footer-brand-mark" />
             <p className="ln-footer-disclaimer">
               Simulator only — for education and practice. Not investment advice.
               Market data may be delayed.
             </p>
           </div>
           <div className="ln-footer-col">
-            <span className="ln-footer-col-head">PLATFORM</span>
+            <span className="ln-footer-col-head">Platform</span>
             <Link to="/dashboard">Market</Link>
             <Link to="/watchlist">Watchlist</Link>
             <Link to="/intel">Intel</Link>
           </div>
           <div className="ln-footer-col">
-            <span className="ln-footer-col-head">LEGAL</span>
+            <span className="ln-footer-col-head">Legal</span>
             <a href="#">Privacy</a>
             <a href="#">Terms</a>
             <a href="#">API</a>
           </div>
         </div>
         <div className="ln-footer-bar">
-          <span>© {new Date().getFullYear()} STOCKSAGE</span>
-          <span>PAPER_TRADING_MODE — NO REAL MONEY</span>
+          <span>© {new Date().getFullYear()} StockSage</span>
+          <span>Paper trading only — no real money</span>
         </div>
       </footer>
 

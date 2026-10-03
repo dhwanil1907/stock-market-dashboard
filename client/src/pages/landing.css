@@ -1,27 +1,45 @@
-/* ─────────────────────────────────────────
-   StockSage Landing — solid black site-wide;
-   final CTA (.ln-final-cta) stays a light contrast band.
-───────────────────────────────────────── */
+/* Landing — Phase E: aliases onto app tokens (themes.css) */
 
-/* ── Reset & Root ── */
 .ln-root {
-  --bg:       #000000;
-  --bg-raised:#000000;
-  --bg-deep:  #000000;
-  --border:   #1E2328;
-  --border-hi:#2A2E33;
-  --text:     #f5f0eb;
-  --muted:    #a8a29e;
-  --faint:    #7a7a82;
-  --up:       #10b981;
-  --dn:       #ff7070;
-  --ln-ticker-h: calc(34px * 1.05);
+  --bg: var(--color-bg);
+  --bg-raised: var(--color-surface);
+  --bg-deep: var(--color-bg);
+  --border: var(--color-border);
+  --border-hi: var(--color-border-strong);
+  --text: var(--color-text);
+  --muted: var(--color-text-secondary);
+  --faint: var(--t-muted2);
+  --up: var(--color-gain);
+  --dn: var(--color-loss);
+  --ln-ticker-h: 36px;
+  --ln-content-max: 1280px;
 
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  font-family: 'Epilogue', -apple-system, sans-serif;
+  font-family: var(--font-sans);
   overflow-x: hidden;
+  position: relative;
+}
+
+.ln-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-border) 55%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 18px 18px;
+  pointer-events: none;
+  opacity: 0.28;
+  z-index: 0;
+}
+
+.ln-root > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Pulsing dot ── */
@@ -56,35 +74,41 @@
 
 /* ── Buttons ── */
 .ln-btn-primary {
-  background: #fff;
-  color: #0a0a0a;
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 13px 26px;
-  border: 2px solid #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
+  padding: 14px 28px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-control);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  transition: background 0.18s, border-color 0.18s, filter 0.18s;
 }
 .ln-btn-primary:hover {
-  background: #e5e7eb;
-  border-color: #e5e7eb;
+  filter: brightness(1.08);
+  border-color: var(--color-accent);
+}
+.ln-btn-primary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .ln-btn-outline {
   background: transparent;
   color: var(--text);
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 13px 26px;
-  border: 2px solid var(--border-hi);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
+  padding: 14px 28px;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-control);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
@@ -93,80 +117,86 @@
   transition: background 0.18s, border-color 0.18s;
 }
 .ln-btn-outline:hover {
-  border-color: #444;
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-muted);
+  color: var(--text);
 }
 
 /* used in final-cta (white bg section) */
 .ln-btn-dark {
-  background: #0a0a0a;
-  color: #fff;
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 13px 26px;
-  border: 2px solid #0a0a0a;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  padding: 12px 24px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-control);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.18s;
+  transition: filter 0.18s;
 }
-.ln-btn-dark:hover { background: #222; border-color: #222; }
+.ln-btn-dark:hover { filter: brightness(1.08); }
 
 .ln-btn-dark-outline {
   background: transparent;
-  color: #0a0a0a;
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 13px 26px;
-  border: 2px solid #ccc;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  padding: 12px 24px;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-control);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.18s, color 0.18s;
+  transition: background 0.18s, border-color 0.18s;
 }
-.ln-btn-dark-outline:hover { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+.ln-btn-dark-outline:hover {
+  background: var(--color-accent-muted);
+  border-color: var(--color-accent);
+  color: var(--text);
+}
 
 .ln-btn-sm   { padding: 9px 18px; font-size: 0.72rem; }
-.ln-btn-hero { padding: 15px 30px; font-size: 0.82rem; }
+.ln-btn-hero { padding: 16px 32px; font-size: 1.125rem; }
 
 /* ── Section layout helpers ── */
 .ln-section-inner {
-  max-width: 1160px;
+  max-width: var(--ln-content-max);
   margin: 0 auto;
   padding: 0 clamp(20px, 5vw, 64px);
 }
 .ln-section-inner--narrow { max-width: 760px; }
 
 .ln-eyebrow {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--faint);
-  text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: none;
   margin: 0 0 14px;
 }
-.ln-eyebrow--dark { color: #777; }
+.ln-eyebrow--dark { color: var(--muted); }
+.ln-eyebrow--light { color: var(--muted); }
 
 .ln-section-h2 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
-  line-height: 1.05;
+  line-height: var(--leading-page);
   margin: 0 0 48px;
   color: var(--text);
 }
-/* override used in final-cta white section */
-.ln-section-h2--on-white { color: #0a0a0a; }
+.ln-section-h2--on-white { color: var(--text); }
+.ln-section-h2--light { color: var(--text); }
 
 /* ── Navbar ── */
 .ln-nav {
@@ -177,7 +207,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(16px, 4vw, 48px);
-  background: rgba(0, 0, 0, 0.92);
+  background: color-mix(in srgb, var(--color-bg) 90%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
@@ -185,12 +215,43 @@
 }
 
 .ln-nav-logo {
-  font-family: 'Josefin Sans', 'Epilogue', sans-serif;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: var(--text);
   text-decoration: none;
+  color: inherit;
+}
+
+.ln-nav-logo .ui-brand-name {
+  font-size: var(--text-section);
+}
+
+.ln-footer-brand-mark .ui-brand-name {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.ln-footer-brand-mark .ui-brand-tagline {
+  max-width: 320px;
+}
+
+.ln-theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ln-theme-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.ln-theme-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .ln-nav-links {
@@ -199,8 +260,8 @@
 }
 
 .ln-nav-link {
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
   font-weight: 500;
   color: var(--muted);
   text-decoration: none;
@@ -233,7 +294,7 @@
   gap: calc(7px * 1.05);
   padding: 0 calc(16px * 1.05);
   border-right: 1px solid var(--border);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: calc(0.6rem * 1.05);
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -264,7 +325,7 @@
   align-items: center;
   gap: calc(8px * 1.05);
   padding: 0 calc(24px * 1.05);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: calc(0.65rem * 1.05);
   border-right: 1px solid var(--border);
   height: var(--ln-ticker-h);
@@ -282,15 +343,15 @@
 }
 
 .ln-hero-inner {
-  max-width: 1160px;
+  max-width: var(--ln-content-max);
   margin: 0 auto;
   padding: 0 clamp(20px, 5vw, 64px);
 }
 
 .ln-hero-h1 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(4rem, 9vw, 8.5rem);
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: clamp(2.5rem, 7vw, 4.25rem);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   line-height: 1.06;
   color: var(--text);
@@ -299,7 +360,7 @@
 }
 
 .ln-hero-sub {
-  font-family: 'Epilogue', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.05rem;
   color: var(--muted);
   line-height: 1.65;
@@ -315,7 +376,7 @@
 }
 
 .ln-hero-note {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   color: var(--faint);
   letter-spacing: 0.14em;
@@ -337,7 +398,7 @@
 }
 
 .ln-hero-stat-val {
-  font-family: 'Josefin Sans', 'Epilogue', sans-serif;
+  font-family: var(--font-sans);
   font-size: 2.35rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -346,10 +407,10 @@
 }
 
 .ln-hero-stat-lbl {
-  font-family: 'Josefin Sans', 'Epilogue', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
   color: var(--faint);
   margin-top: 8px;
 }
@@ -390,7 +451,7 @@
 .ln-feat-card:nth-last-child(-n+3) { border-bottom: none; }
 
 .ln-feat-num {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -400,7 +461,7 @@
 }
 
 .ln-feat-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-sans);
   font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -437,11 +498,11 @@
 }
 
 .ln-step-bg-num {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-sans);
   font-size: 9rem;
   font-weight: 900;
   line-height: 1;
-  color: #0a0a0a;
+  color: var(--color-surface-elevated);
   position: absolute;
   bottom: -14px;
   right: 10px;
@@ -453,17 +514,17 @@
 .ln-step-content { position: relative; z-index: 1; }
 
 .ln-step-num {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: var(--up);
+  color: var(--color-accent);
   display: block;
   margin-bottom: 20px;
 }
 
 .ln-step-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-sans);
   font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -514,11 +575,11 @@
 }
 
 .ln-chart-header--link:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-accent-muted);
 }
 
 .ln-chart-ticker {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--text);
@@ -532,7 +593,7 @@
 }
 
 .ln-chart-change {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -542,7 +603,7 @@
 .ln-chart-change--dn { color: var(--dn); }
 
 .ln-chart-price {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-sans);
   font-size: 2.2rem;
   font-weight: 900;
   letter-spacing: -0.02em;
@@ -570,7 +631,7 @@
   left: 0;
   transform: translateX(-50%);
   padding: 8px 12px;
-  background: rgba(15, 15, 18, 0.92);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
   border: 1px solid var(--border-hi);
   border-radius: 6px;
   display: flex;
@@ -583,14 +644,14 @@
 }
 
 .ln-chart-tooltip-date {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   letter-spacing: 0.08em;
   color: var(--faint);
 }
 
 .ln-chart-tooltip-price {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text);
@@ -601,7 +662,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.2em;
   color: var(--faint);
@@ -616,7 +677,7 @@
 }
 
 .ln-chart-ai-badge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.1em;
   color: var(--faint);
@@ -640,7 +701,7 @@
 }
 
 .ln-chart-period-btn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -660,9 +721,9 @@
 }
 
 .ln-chart-period-btn--on {
-  color: var(--up);
-  border-color: var(--up);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
 }
 
 /* ── Pricing ── */
@@ -686,17 +747,17 @@
   background: var(--bg-raised);
   transition: border-color 0.2s;
 }
-.ln-price-card:hover { border-color: #444; }
+.ln-price-card:hover { border-color: var(--color-border-strong); }
 
 .ln-price-card--featured {
-  border-color: #10b981;
+  border-color: var(--color-accent);
   background: var(--bg-raised);
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 0 1px var(--color-accent-muted);
 }
-.ln-price-card--featured:hover { border-color: #34d399; }
+.ln-price-card--featured:hover { border-color: var(--color-accent); }
 
 .ln-price-tier {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -706,7 +767,7 @@
 .ln-price-card--featured .ln-price-tier { color: var(--muted); }
 
 .ln-price-amount {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-sans);
   font-size: 3.5rem;
   font-weight: 900;
   letter-spacing: -0.03em;
@@ -750,30 +811,31 @@
   display: block;
   text-align: center;
   padding: 13px;
-  font-family: 'Epilogue', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
   text-decoration: none;
   border: 1px solid var(--border-hi);
+  border-radius: var(--radius-control);
   color: var(--muted);
   background: transparent;
   transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
 .ln-price-cta:hover {
-  background: #fff;
-  color: #0a0a0a;
-  border-color: #fff;
+  background: var(--color-accent-muted);
+  color: var(--text);
+  border-color: var(--color-accent);
 }
 
 .ln-price-cta--featured {
-  background: #fff;
-  color: #0a0a0a;
-  border-color: #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
 }
 .ln-price-cta--featured:hover {
-  background: #e5e7eb;
-  border-color: #e5e7eb;
+  filter: brightness(1.08);
+  border-color: var(--color-accent);
 }
 
 /* ── FAQ ── */
@@ -801,9 +863,9 @@
   gap: 16px;
   padding: 22px 0;
   text-align: left;
-  font-family: 'Epilogue', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--text);
   transition: opacity 0.15s;
 }
@@ -825,25 +887,26 @@
   max-width: 600px;
 }
 
-/* ── Final CTA — light box only; rest of page is solid black ── */
+/* ── Final CTA — elevated contrast band ── */
 .ln-final-cta {
   padding: 100px 0;
-  background: #fff;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
 }
 
 .ln-final-h2 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(3rem, 6.5vw, 6rem);
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
-  line-height: 0.97;
-  color: #0a0a0a;
+  line-height: var(--leading-page);
+  color: var(--text);
   margin: 0 0 20px;
 }
 
 .ln-final-sub {
   font-size: 1rem;
-  color: #777;
+  color: var(--muted);
   margin: 0 0 40px;
 }
 
@@ -860,22 +923,12 @@
 }
 
 .ln-footer-inner {
-  max-width: 1160px;
+  max-width: var(--ln-content-max);
   margin: 0 auto;
   padding: 52px clamp(20px, 5vw, 64px) 36px;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: 40px;
-}
-
-.ln-footer-logo {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1rem;
-  font-weight: 900;
-  letter-spacing: 0.2em;
-  color: var(--text);
-  display: block;
-  margin-bottom: 14px;
 }
 
 .ln-footer-disclaimer {
@@ -893,7 +946,7 @@
 }
 
 .ln-footer-col-head {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -903,14 +956,14 @@
 
 .ln-footer-col a {
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--muted);
   text-decoration: none;
   transition: color 0.15s;
 }
 .ln-footer-col a:hover { color: var(--text); }
 
 .ln-footer-bar {
-  max-width: 1160px;
+  max-width: var(--ln-content-max);
   margin: 0 auto;
   padding: 18px clamp(20px, 5vw, 64px) 24px;
   border-top: 1px solid var(--border);
@@ -920,7 +973,7 @@
 }
 
 .ln-footer-bar span {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--faint);
   letter-spacing: 0.12em;

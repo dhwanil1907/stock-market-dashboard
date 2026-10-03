@@ -26,7 +26,8 @@ const App: React.FC = () => {
   const { theme } = useThemeStore();
 
   useEffect(() => {
-    document.documentElement.className = theme;
+    document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.classList.add(theme);
   }, [theme]);
 
   return (
@@ -34,7 +35,13 @@ const App: React.FC = () => {
       <Toaster
         position="top-right"
         toastOptions={{
-          style: { background: '#111418', border: '1px solid #1E2328', color: '#F9FAFB', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' },
+          style: {
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--text-caption)',
+          },
         }}
       />
       <Routes>

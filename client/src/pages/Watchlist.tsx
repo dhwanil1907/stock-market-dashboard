@@ -4,8 +4,15 @@ import { useWatchlistStore } from '../stores/watchlistStore';
 import { toast } from 'sonner';
 import api from '../lib/api';
 import { Trash2, Loader2, Plus } from 'lucide-react';
+import { formatPrice, formatVolume } from '../lib/format';
+import { ChangeBadge } from '../components/ui/ChangeBadge';
+import { DataTable } from '../components/ui/DataTable';
 
-const fmtVol = (n: number) => (n != null ? `${(n / 1_000_000).toFixed(1)}M` : '—');
+function heatBackground(up: boolean, intensity: number): string {
+  const pct = Math.round(14 + intensity * 40);
+  const color = up ? 'var(--color-gain)' : 'var(--color-loss)';
+  return `color-mix(in srgb, ${color} ${pct}%, var(--color-surface))`;
+}
 
 const Watchlist: React.FC = () => {
   const { tickers, addTicker, removeTicker, init } = useWatchlistStore();
@@ -24,12 +31,12 @@ const Watchlist: React.FC = () => {
 
   useEffect(() => {
     init().then(() => setLoading(false));
-  }, []);
+  }, [init]);
 
   const fetchAll = useCallback(async () => {
     if (!tickers.length) return;
     const results = await Promise.allSettled(
-      tickers.map(t => api.get(`/stock/${t}/quote`).then(r => ({ ticker: t, data: r.data })))
+      tickers.map(t => api.get(`/stock/${t}/quote`).then(r => ({ ticker: t, data: r.data }))),
     );
     const q: Record<string, any> = {};
     results.forEach(r => { if (r.status === 'fulfilled') q[r.value.ticker] = r.value.data; });
@@ -59,26 +66,21 @@ const Watchlist: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="wl-page">
       <div className="t-page-header" style={{ flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h1 className="t-page-hero-title" style={{ marginBottom: 6 }}>WATCHLIST</h1>
-          <p className="wl-sub">
-            TRACKING {tickers.length} ASSETS
-          </p>
-        </div>
+        <p className="wl-page-meta">Tracking {tickers.length} {tickers.length === 1 ? 'symbol' : 'symbols'}</p>
         <div className="wl-hero-actions">
           <input
             type="text"
             className="wl-add-input"
             style={{ width: 160 }}
-            placeholder="TICKER…"
+            placeholder="Ticker…"
             value={newTicker}
             onChange={e => setNewTicker(e.target.value.toUpperCase())}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
           />
           <button type="button" className="t-btn t-btn-accent" onClick={handleAdd}>
-            <Plus size={12} /> ADD STOCK +
+            <Plus size={12} /> Add symbol
           </button>
         </div>
       </div>
@@ -90,29 +92,26 @@ const Watchlist: React.FC = () => {
       ) : tickers.length === 0 ? (
         <div className="t-card wl-empty">
           <div className="wl-empty-icon">◈</div>
-          <div className="t-muted2">WATCHLIST_EMPTY</div>
-          <div className="t-muted2 wl-empty-sub">
-            Type a ticker above and press Enter.
-          </div>
+          <div className="t-muted2">Your watchlist is empty</div>
+          <div className="t-muted2 wl-empty-sub">Type a ticker above and press Enter.</div>
         </div>
       ) : (
         <>
-          <div className="t-card-bare">
+          <DataTable bare>
             <table className="t-table">
               <thead>
                 <tr>
-                  <th>TICKER</th>
-                  <th>PRICE</th>
-                  <th>CHANGE</th>
-                  <th title="Shares traded in the current trading day">DAY VOLUME</th>
-                  <th>NOTE</th>
-                  <th>ACTION</th>
+                  <th>Ticker</th>
+                  <th>Price</th>
+                  <th>Change</th>
+                  <th title="Shares traded today">Day volume</th>
+                  <th>Note</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {tickers.map(t => {
                   const q = quotes[t];
-                  const up = (q?.change_percent ?? 0) >= 0;
                   return (
                     <tr key={t}>
                       <td>
@@ -121,18 +120,14 @@ const Watchlist: React.FC = () => {
                           {q?.company_name ?? '—'}
                         </span>
                       </td>
-                      <td>{q?.price != null ? `$${q.price.toFixed(2)}` : '—'}</td>
-                      <td className={`t-fw7 ${up ? 't-green' : 't-red'}`}>
-                        {q?.change_percent != null
-                          ? `${up ? '+' : ''}${q.change_percent.toFixed(2)}%`
-                          : '—'}
-                      </td>
-                      <td>{fmtVol(q?.volume)}</td>
+                      <td className="t-num">{q?.price != null ? formatPrice(q.price) : '—'}</td>
+                      <td><ChangeBadge value={q?.change_percent} decimals={2} /></td>
+                      <td className="t-num t-muted">{formatVolume(q?.volume)}</td>
                       <td style={{ maxWidth: 160 }}>
                         <input
                           type="text"
                           className="wl-note-input"
-                          placeholder="Why are you watching this?"
+                          placeholder="Why watch?"
                           value={notes[t] ?? ''}
                           onChange={e => updateNote(t, e.target.value)}
                         />
@@ -152,28 +147,20 @@ const Watchlist: React.FC = () => {
                 })}
               </tbody>
             </table>
-          </div>
+          </DataTable>
 
           <div className="wl-widgets">
             <div className="wl-widget">
-              <div className="t-card-label t-mb-0">WATCHLIST_PERFORMANCE_HEATMAP</div>
+              <h2 className="ui-section-label">Day performance</h2>
               <div className="wl-heat">
                 {tickers.map(sym => {
                   const q = quotes[sym];
                   const pct = q?.change_percent ?? 0;
                   const up = pct >= 0;
                   const intensity = Math.min(1, Math.abs(pct) / 5);
-                  const bg = q
-                    ? up
-                      ? `rgba(0, 255, 136, ${0.15 + intensity * 0.45})`
-                      : `rgba(255, 96, 96, ${0.18 + intensity * 0.5})`
-                    : '#1a1a1a';
+                  const bg = q ? heatBackground(up, intensity) : 'var(--color-surface-elevated)';
                   return (
-                    <div
-                      key={sym}
-                      className="wl-heat-cell"
-                      style={{ background: bg }}
-                    >
+                    <div key={sym} className="wl-heat-cell" style={{ background: bg }}>
                       <span className="wl-heat-sym">{sym}</span>
                       <span className="wl-heat-pct">
                         {q ? `${up ? '+' : ''}${pct.toFixed(2)}%` : '—'}
@@ -184,13 +171,9 @@ const Watchlist: React.FC = () => {
               </div>
             </div>
             <div className="wl-widget">
-              <div className="t-card-label t-mb-0">MARKET_PULSE</div>
-              <p style={{ margin: '12px 0 8px', fontSize: 10, color: 'var(--t-muted)' }}>
-                <span className="t-red">VIX_VOLATILITY</span> ELEVATED ·{' '}
-                <span className="t-green">SPY_LEVEL</span> STABLE · BTC_INDEX TRACKING RISK-ON
-              </p>
-              <p className="t-muted2" style={{ fontSize: 9, lineHeight: 1.55, margin: 0 }}>
-                ANALYSIS: RANGE-BOUND ACTION EXPECTED UNTIL CPI PRINT. WATCH MOVING AVERAGE STACKS.
+              <h2 className="ui-section-label">Notes</h2>
+              <p className="t-muted2" style={{ fontSize: 'var(--text-caption)', lineHeight: 1.55, margin: 0 }}>
+                Add a short note per symbol in the table to capture your thesis.
               </p>
             </div>
           </div>

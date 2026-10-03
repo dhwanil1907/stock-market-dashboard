@@ -2,24 +2,25 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  TrendingUp, TrendingDown, RefreshCw, Loader2, AlertTriangle,
+  RefreshCw, Loader2, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Minus, Brain, ChevronDown,
 } from 'lucide-react';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Area, AreaChart, ReferenceLine,
+  ResponsiveContainer, Area, ReferenceLine,
 } from 'recharts';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
+import { formatPrice } from '../lib/format';
+import { ChangeBadge } from '../components/ui/ChangeBadge';
+import { chartTooltipOptional, chartTooltipUsd, useChartTheme } from '../lib/chartTheme';
 
 const PERIODS = ['1d', '5d', '1mo', '3mo', '1y', '5y'];
-
-const fmtPrice = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const StockDetail: React.FC = () => {
   const { ticker } = useParams<{ ticker: string }>();
   const { token } = useAuthStore();
+  const chart = useChartTheme();
   const [quote, setQuote]               = useState<any>(null);
   const [history, setHistory]           = useState<any[]>([]);
   const [prediction, setPrediction]     = useState<any>(null);
@@ -133,15 +134,14 @@ const StockDetail: React.FC = () => {
 
   const isUp  = prediction ? prediction.price_change_pct >= 0 : true;
   const rec   = prediction?.recommendation ?? '';
-  const quoteUp = headerChangePct >= 0;
 
   const recColor = rec.includes('BUY') ? 't-green' : rec.includes('SELL') ? 't-red' : 't-yellow';
   const recIcon  = rec.includes('BUY') ? <ArrowUpRight size={24} /> : rec.includes('SELL') ? <ArrowDownRight size={24} /> : <Minus size={24} />;
 
   const rsiLabel = (rsi: number) => {
-    if (rsi >= 70) return { label: 'OVERBOUGHT', color: 't-red' };
-    if (rsi <= 30) return { label: 'OVERSOLD',   color: 't-green' };
-    return { label: 'NEUTRAL', color: 't-yellow' };
+    if (rsi >= 70) return { label: 'Overbought', color: 't-red' };
+    if (rsi <= 30) return { label: 'Oversold',   color: 't-green' };
+    return { label: 'Neutral', color: 't-yellow' };
   };
 
   if (loading) return (
@@ -160,11 +160,8 @@ const StockDetail: React.FC = () => {
             <div className="t-muted2 sd-company">{quote?.company_name}</div>
           </div>
           <div className="sd-price-block">
-            <div className="sd-price">{quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'}</div>
-            <div className={`sd-change ${quoteUp ? 't-green' : 't-red'}`}>
-              {quoteUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {quoteUp ? '+' : ''}{headerChangePct.toFixed(2)}%
-            </div>
+            <div className="sd-price">{quote?.price != null ? formatPrice(quote.price) : '—'}</div>
+            <ChangeBadge value={headerChangePct} decimals={2} />
           </div>
         </div>
 
@@ -180,7 +177,7 @@ const StockDetail: React.FC = () => {
               }}
               className={`sd-tab ${activeTab === tab ? 'sd-tab--active' : ''}`}
             >
-              {tab === 'chart' ? 'PRICE_CHART' : 'OPTIONS_CHAIN'}
+              {tab === 'chart' ? 'Price chart' : 'Options chain'}
             </button>
           ))}
         </div>
@@ -196,28 +193,28 @@ const StockDetail: React.FC = () => {
                   onClick={() => setPeriod(p)}
                   className={`sd-period-btn ${period === p ? 'sd-period-btn--active' : ''}`}
                 >
-                  {p.toUpperCase()}
+                  {p}
                 </button>
               ))}
             </div>
 
             <div className="t-card-bare">
               <div className="pf-chart-wrap">
-                <div className="pf-chart-title">INTERACTIVE_CHART_V2.1</div>
+                <h2 className="ui-section-label">Price history</h2>
                 {history.length === 0 ? (
                   <div className="pf-empty t-muted2">No chart data for this period.</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={320}>
                     <ComposedChart data={history}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1E2328" />
-                      <XAxis dataKey="date" tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} tickFormatter={d => d.slice(5)} />
-                      <YAxis domain={['auto', 'auto']} tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} width={56} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                      <XAxis dataKey="date" tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} tickFormatter={d => d.slice(5)} />
+                      <YAxis domain={['auto', 'auto']} tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} width={56} />
                       <Tooltip
-                        contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
-                        formatter={(v: number) => [`$${fmtPrice(v)}`, '']}
+                        contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, fontFamily: chart.fontMono, fontSize: 12, borderRadius: 8 }}
+                        formatter={chartTooltipUsd}
                       />
-                      <Line type="monotone" dataKey="close" stroke="#10B981" strokeWidth={1.5} dot={false} />
-                      <Bar dataKey="volume" fill="#2A2E33" opacity={0.35} yAxisId="vol" />
+                      <Line type="monotone" dataKey="close" stroke={chart.gain} strokeWidth={2} dot={false} />
+                      <Bar dataKey="volume" fill={chart.volume} opacity={0.35} yAxisId="vol" />
                       <YAxis yAxisId="vol" orientation="right" tick={false} width={0} />
                     </ComposedChart>
                   </ResponsiveContainer>
@@ -231,7 +228,7 @@ const StockDetail: React.FC = () => {
         {activeTab === 'options' && (
           <div className="t-card-bare">
             <div className="mo-table-header sd-options-header">
-              <span className="t-card-label t-mb-0">OPTIONS_CHAIN</span>
+              <h2 className="ui-section-label t-mb-0">Options chain</h2>
               {options?.expirations && (
                 <div className="sd-expiry-wrap">
                   <select
@@ -270,23 +267,23 @@ const StockDetail: React.FC = () => {
                   <table className="t-table">
                     <thead>
                       <tr>
-                        <th>STRIKE</th>
-                        <th>LAST</th>
-                        <th>BID</th>
-                        <th>ASK</th>
-                        <th>VOLUME</th>
-                        <th>OI</th>
-                        <th>IV%</th>
+                        <th>Strike</th>
+                        <th>Last</th>
+                        <th>Bid</th>
+                        <th>Ask</th>
+                        <th>Volume</th>
+                        <th>Open int.</th>
+                        <th>IV %</th>
                         <th>ITM</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(options[optionsTab] || []).slice(0, 30).map((c: any, i: number) => (
                         <tr key={i} className={c.inTheMoney ? 'sd-itm-row' : ''}>
-                          <td className={c.inTheMoney ? 't-green t-fw7' : ''}>{c.strike != null ? `$${fmtPrice(c.strike)}` : '—'}</td>
-                          <td>{c.lastPrice != null ? `$${fmtPrice(c.lastPrice)}` : '—'}</td>
-                          <td className="t-muted2">{c.bid != null ? `$${fmtPrice(c.bid)}` : '—'}</td>
-                          <td className="t-muted2">{c.ask != null ? `$${fmtPrice(c.ask)}` : '—'}</td>
+                          <td className={c.inTheMoney ? 't-green t-fw7' : ''}>{c.strike != null ? formatPrice(c.strike) : '—'}</td>
+                          <td>{c.lastPrice != null ? formatPrice(c.lastPrice) : '—'}</td>
+                          <td className="t-muted2">{c.bid != null ? formatPrice(c.bid) : '—'}</td>
+                          <td className="t-muted2">{c.ask != null ? formatPrice(c.ask) : '—'}</td>
                           <td>{c.volume?.toLocaleString() ?? '—'}</td>
                           <td>{c.openInterest?.toLocaleString() ?? '—'}</td>
                           <td>{c.impliedVolatility != null ? `${c.impliedVolatility.toFixed(1)}%` : '—'}</td>
@@ -304,21 +301,21 @@ const StockDetail: React.FC = () => {
         {/* AI Prediction */}
         <div className="t-card-bare">
           <div className="mo-table-header sd-pred-header">
-            <span className="t-card-label t-mb-0"><Brain size={12} className="t-green" /> AI_PREDICTION</span>
+            <h2 className="ui-section-label t-mb-0"><Brain size={12} className="t-green" /> AI prediction</h2>
             <button
               type="button"
               className="t-btn t-btn-outline"
               onClick={fetchPrediction}
               disabled={loadingPred}
             >
-              {loadingPred ? <><Loader2 size={10} className="t-spin" /> RUNNING...</> : <><RefreshCw size={10} /> {prediction ? 'REFRESH' : 'RUN_PREDICTION'}</>}
+              {loadingPred ? <><Loader2 size={10} className="t-spin" /> Running…</> : <><RefreshCw size={10} /> {prediction ? 'Refresh' : 'Run prediction'}</>}
             </button>
           </div>
 
           {loadingPred && !prediction && (
             <div className="pf-empty">
               <Loader2 size={20} className="t-spin t-green" />
-              <div className="t-muted2 sd-pred-loading">TRAINING ARIMA + LSTM ENSEMBLE…</div>
+              <div className="t-muted2 sd-pred-loading">Training ARIMA + LSTM ensemble…</div>
             </div>
           )}
 
@@ -337,27 +334,27 @@ const StockDetail: React.FC = () => {
                 <div className={`sd-rec-icon ${recColor}`}>{recIcon}</div>
                 <div>
                   <div className={`sd-rec-label ${recColor}`}>{rec}</div>
-                  <div className="t-muted2 sd-rec-sub">30-DAY ENSEMBLE SIGNAL</div>
+                  <div className="t-muted2 sd-rec-sub">30-day ensemble signal</div>
                 </div>
                 <div className="sd-rec-pct">
                   <div className={`sd-rec-pct-val ${isUp ? 't-green' : 't-red'}`}>
                     {isUp ? '+' : ''}{prediction.price_change_pct.toFixed(2)}%
                   </div>
-                  <div className="t-muted2 sd-rec-sub">PROJECTED</div>
+                  <div className="t-muted2 sd-rec-sub">Projected</div>
                 </div>
               </div>
 
               {/* Stats row */}
               <div className="sd-pred-stats">
                 {[
-                  { label: 'CURRENT',    value: `$${fmtPrice(prediction.current_price)}`, color: '' },
-                  { label: '30D_TARGET', value: `$${fmtPrice(prediction.price_target)}`,  color: isUp ? 't-green' : 't-red' },
-                  { label: 'RSI_14',     value: `${prediction.rsi_value.toFixed(1)}`, color: rsiLabel(prediction.rsi_value).color },
-                  { label: 'CONFIDENCE', value: `${(prediction.confidence * 100).toFixed(0)}%`, color: '' },
-                ].map(({ label, value, color }) => (
+                  { label: 'Current', render: () => formatPrice(prediction.current_price), color: '' },
+                  { label: '30d target', render: () => formatPrice(prediction.price_target), color: isUp ? 't-green' : 't-red' },
+                  { label: 'RSI (14)', render: () => prediction.rsi_value.toFixed(1), color: rsiLabel(prediction.rsi_value).color },
+                  { label: 'Confidence', render: () => `${(prediction.confidence * 100).toFixed(0)}%`, color: '' },
+                ].map(({ label, render, color }) => (
                   <div key={label} className="t-card sd-pred-stat">
                     <div className="t-card-label">{label}</div>
-                    <div className={`t-card-value ${color}`}>{value}</div>
+                    <div className={`t-card-value ${color}`}>{render()}</div>
                   </div>
                 ))}
               </div>
@@ -365,31 +362,27 @@ const StockDetail: React.FC = () => {
               {/* Forecast chart */}
               {predChartData && (
                 <div className="pf-chart-wrap">
-                  <div className="pf-chart-title">LAST_30_DAYS + 30_DAY_FORECAST</div>
+                  <h2 className="ui-section-label">Last 30 days + forecast</h2>
                   <ResponsiveContainer width="100%" height={240}>
                     <ComposedChart data={predChartData.points}>
                       <defs>
                         <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={isUp ? '#34D399' : '#FF7070'} stopOpacity={0.15} />
-                          <stop offset="95%" stopColor={isUp ? '#34D399' : '#FF7070'} stopOpacity={0} />
+                          <stop offset="5%"  stopColor={isUp ? chart.gain : chart.loss} stopOpacity={0.15} />
+                          <stop offset="95%" stopColor={isUp ? chart.gain : chart.loss} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1E2328" />
-                      <XAxis dataKey="date" tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} tickFormatter={(d: string) => d.slice(5)} interval="preserveStartEnd" />
-                      <YAxis domain={['auto', 'auto']} tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} width={56} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                      <XAxis dataKey="date" tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} tickFormatter={(d: string) => d.slice(5)} interval="preserveStartEnd" />
+                      <YAxis domain={['auto', 'auto']} tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} width={56} />
                       <Tooltip
-                        contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
-                        formatter={(v: any, name: string) => {
-                          if (v === null) return [null, null];
-                          const labels: Record<string, string> = { actual: 'PRICE', forecast: 'FORECAST', upper: 'UPPER', lower: 'LOWER' };
-                          return [`$${fmtPrice(Number(v))}`, labels[name] ?? name];
-                        }}
+                        contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, fontFamily: chart.fontMono, fontSize: 12, borderRadius: 8 }}
+                        formatter={chartTooltipOptional}
                       />
-                      <ReferenceLine x={predChartData.todayLabel} stroke="#2A2E33" strokeDasharray="4 4" />
+                      <ReferenceLine x={predChartData.todayLabel} stroke={chart.grid} strokeDasharray="4 4" />
                       <Area type="monotone" dataKey="upper" stroke="none" fill="url(#bandGrad)" connectNulls={false} dot={false} legendType="none" />
                       <Area type="monotone" dataKey="lower" stroke="none" fill="white" fillOpacity={0} connectNulls={false} dot={false} legendType="none" />
-                      <Line type="monotone" dataKey="actual"   stroke="#6B7280"                        strokeWidth={1.5} dot={false} connectNulls={false} />
-                      <Line type="monotone" dataKey="forecast" stroke={isUp ? '#34D399' : '#FF7070'} strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls={false} />
+                      <Line type="monotone" dataKey="actual"   stroke={chart.tickFill}                        strokeWidth={2} dot={false} connectNulls={false} />
+                      <Line type="monotone" dataKey="forecast" stroke={isUp ? chart.gain : chart.loss} strokeWidth={2} strokeDasharray="6 3" dot={false} connectNulls={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -397,18 +390,18 @@ const StockDetail: React.FC = () => {
 
               {/* Model breakdown */}
               <div className="pf-chart-wrap">
-                <div className="pf-chart-title">MODEL_TARGETS (30D)</div>
+                <h2 className="ui-section-label">Model targets (30d)</h2>
                 <div className="sd-model-grid">
                   {[
                     { label: 'ARIMA',    value: prediction.arima_target },
                     { label: 'LSTM',     value: prediction.lstm_target },
-                    { label: 'ENSEMBLE', value: prediction.price_target, highlight: true },
+                    { label: 'Ensemble', value: prediction.price_target, highlight: true },
                   ].map(({ label, value, highlight }) => {
                     const up = value >= prediction.current_price;
                     return (
                       <div key={label} className={`t-card sd-model-card ${highlight ? 'sd-model-card--highlight' : ''}`}>
                         <div className="t-card-label">{label}</div>
-                        <div className={`t-card-value ${up ? 't-green' : 't-red'}`}>${fmtPrice(value)}</div>
+                        <div className={`t-card-value ${up ? 't-green' : 't-red'}`}>{formatPrice(value)}</div>
                         <div className={`t-card-sub ${up ? 't-green' : 't-red'}`}>
                           {up ? '+' : ''}{(((value - prediction.current_price) / prediction.current_price) * 100).toFixed(1)}%
                         </div>
@@ -420,12 +413,12 @@ const StockDetail: React.FC = () => {
 
               {/* Reasoning */}
               <div className="pf-chart-wrap sd-reasoning">
-                <div className="pf-chart-title">ANALYSIS</div>
+                <h2 className="ui-section-label">Analysis</h2>
                 <div className="sd-reasoning-text">{prediction.reasoning}</div>
               </div>
 
               <div className="sd-disclaimer t-muted2">
-                <AlertTriangle size={10} /> NOT FINANCIAL ADVICE — FOR EDUCATIONAL USE ONLY
+                <AlertTriangle size={10} /> Not financial advice — for educational use only
               </div>
             </div>
           )}
@@ -437,19 +430,19 @@ const StockDetail: React.FC = () => {
         {/* Key stats */}
         <div className="t-card-bare">
           <div className="mo-table-header">
-            <span className="t-card-label t-mb-0">KEY_STATISTICS</span>
+            <h2 className="ui-section-label t-mb-0">Key statistics</h2>
           </div>
           <table className="t-table">
             <tbody>
               {[
-                ['OPEN',     quote?.open != null ? `$${fmtPrice(quote.open)}` : '—'],
-                ['HIGH',     quote?.high != null ? `$${fmtPrice(quote.high)}` : '—'],
-                ['LOW',      quote?.low  != null ? `$${fmtPrice(quote.low)}`  : '—'],
-                ['DAY_VOLUME', quote?.volume?.toLocaleString() ?? '—'],
-                ['MKT_CAP',  quote?.market_cap ? `$${(quote.market_cap / 1e9).toFixed(1)}B` : '—'],
+                ['Open',     quote?.open != null ? formatPrice(quote.open) : '—'],
+                ['High',     quote?.high != null ? formatPrice(quote.high) : '—'],
+                ['Low',      quote?.low  != null ? formatPrice(quote.low)  : '—'],
+                ['Day volume', quote?.volume?.toLocaleString() ?? '—'],
+                ['Market cap',  quote?.market_cap ? `$${(quote.market_cap / 1e9).toFixed(1)}B` : '—'],
                 ['P/E',      quote?.pe_ratio?.toFixed(2) ?? '—'],
-                ['DIV_YIELD',quote?.dividend_yield ? `${(quote.dividend_yield * 100).toFixed(2)}%` : '—'],
-                ['SECTOR',   quote?.sector ?? '—'],
+                ['Div. yield',quote?.dividend_yield ? `${(quote.dividend_yield * 100).toFixed(2)}%` : '—'],
+                ['Sector',   quote?.sector ?? '—'],
               ].map(([label, val]) => (
                 <tr key={label}>
                   <td className="t-muted2">{label}</td>
@@ -464,7 +457,7 @@ const StockDetail: React.FC = () => {
         {token && (
           <div className="t-card-bare">
             <div className="mo-table-header">
-              <span className="t-card-label t-mb-0">PAPER_TRADE</span>
+              <h2 className="ui-section-label t-mb-0">Paper trade</h2>
             </div>
             <div className="sd-trade-body">
               <div className="sd-trade-tabs">
@@ -485,7 +478,7 @@ const StockDetail: React.FC = () => {
               </div>
 
               <div className="al-form-row">
-                <label className="t-label">QUANTITY</label>
+                <label className="t-label">Quantity</label>
                 <input
                   type="number"
                   min={1}
@@ -498,12 +491,12 @@ const StockDetail: React.FC = () => {
 
               <div className="sd-order-summary">
                 <div className="sd-order-row">
-                  <span className="t-muted2">PRICE</span>
-                  <span>{quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'}</span>
+                  <span className="t-muted2">Price</span>
+                  <span>{quote?.price != null ? formatPrice(quote.price) : '—'}</span>
                 </div>
                 <div className="sd-order-row sd-order-total">
-                  <span>EST_TOTAL</span>
-                  <span className="t-green">${fmtPrice(quantity * (quote?.price || 0))}</span>
+                  <span>Est. total</span>
+                  <span className="t-green">{formatPrice(quantity * (quote?.price || 0))}</span>
                 </div>
               </div>
 
@@ -512,7 +505,7 @@ const StockDetail: React.FC = () => {
                 onClick={() => setShowConfirm(true)}
                 className={`t-btn al-submit ${tradeAction === 'BUY' ? 't-btn-accent' : 't-btn-danger'}`}
               >
-                REVIEW_{tradeAction}_ORDER
+                {`Review ${tradeAction.toLowerCase()} order`}
               </button>
             </div>
           </div>
@@ -522,7 +515,7 @@ const StockDetail: React.FC = () => {
         {quote?.description && (
           <div className="t-card-bare">
             <div className="mo-table-header">
-              <span className="t-card-label t-mb-0">ABOUT</span>
+              <h2 className="ui-section-label t-mb-0">About</h2>
             </div>
             <div className="sd-about">
               <div className="sd-about-text">{quote.description}</div>
@@ -536,15 +529,15 @@ const StockDetail: React.FC = () => {
       {showConfirm && (
         <div className="sd-modal-backdrop" onClick={() => !tradeLoading && setShowConfirm(false)}>
           <div className="sd-modal" onClick={e => e.stopPropagation()}>
-            <div className="sd-modal-title">CONFIRM_{tradeAction}_ORDER</div>
+            <div className="sd-modal-title">Confirm {tradeAction.toLowerCase()} order</div>
             <table className="t-table sd-modal-table">
               <tbody>
                 {[
-                  ['TICKER',   <span className="t-green t-fw7">{ticker}</span>],
-                  ['ACTION',   <span className={tradeAction === 'BUY' ? 't-green t-fw7' : 't-red t-fw7'}>{tradeAction}</span>],
-                  ['QUANTITY', quantity],
-                  ['PRICE',    quote?.price != null ? `$${fmtPrice(quote.price)}` : '—'],
-                  ['TOTAL',    <span className="t-green t-fw7">${fmtPrice(quantity * (quote?.price || 0))}</span>],
+                  ['Ticker',   <span className="t-green t-fw7">{ticker}</span>],
+                  ['Action',   <span className={tradeAction === 'BUY' ? 't-green t-fw7' : 't-red t-fw7'}>{tradeAction}</span>],
+                  ['Quantity', quantity],
+                  ['Price',    quote?.price != null ? formatPrice(quote.price) : '—'],
+                  ['Total',    <span className="t-green t-fw7">{formatPrice(quantity * (quote?.price || 0))}</span>],
                 ].map(([label, val]) => (
                   <tr key={String(label)}>
                     <td className="t-muted2">{label}</td>
@@ -555,7 +548,7 @@ const StockDetail: React.FC = () => {
             </table>
             <div className="sd-modal-actions">
               <button type="button" className="t-btn t-btn-ghost" onClick={() => setShowConfirm(false)} disabled={tradeLoading}>
-                CANCEL
+                Cancel
               </button>
               <button
                 type="button"
@@ -563,7 +556,7 @@ const StockDetail: React.FC = () => {
                 disabled={tradeLoading}
                 className={`t-btn ${tradeAction === 'BUY' ? 't-btn-accent' : 't-btn-danger'}`}
               >
-                {tradeLoading ? <><Loader2 size={11} className="t-spin" /> PROCESSING...</> : `CONFIRM_${tradeAction}`}
+                {tradeLoading ? <><Loader2 size={11} className="t-spin" /> Processing…</> : `'Confirm order'`}
               </button>
             </div>
           </div>

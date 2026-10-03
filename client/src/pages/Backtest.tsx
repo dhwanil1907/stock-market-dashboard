@@ -7,6 +7,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
+import { formatPrice } from '../lib/format';
+import { chartTooltipUsd, useChartTheme } from '../lib/chartTheme';
 
 interface BacktestResult {
   ticker: string;
@@ -24,9 +26,9 @@ interface BacktestResult {
 }
 
 const STRATEGIES = [
-  { id: 'SMA_CROSS', label: 'SMA_CROSSOVER', desc: '20-day MA crosses above 50-day MA' },
-  { id: 'RSI',       label: 'RSI_STRATEGY',  desc: 'Buy RSI<30, sell RSI>70' },
-  { id: 'MACD',      label: 'MACD_STRATEGY', desc: 'MACD line vs signal line crossover' },
+  { id: 'SMA_CROSS', label: 'SMA crossover', desc: '20-day MA crosses above 50-day MA' },
+  { id: 'RSI',       label: 'RSI strategy',  desc: 'Buy RSI<30, sell RSI>70' },
+  { id: 'MACD',      label: 'MACD strategy', desc: 'MACD line vs signal line crossover' },
 ];
 
 const PERIODS = [
@@ -39,6 +41,7 @@ const fmtK = (v: number) => `$${(v / 1000).toFixed(0)}K`;
 
 const Backtest: React.FC = () => {
   const { token } = useAuthStore();
+  const chart = useChartTheme();
   const [ticker, setTicker]     = useState('AAPL');
   const [strategy, setStrategy] = useState('SMA_CROSS');
   const [period, setPeriod]     = useState('2y');
@@ -46,7 +49,7 @@ const Backtest: React.FC = () => {
   const [result, setResult]     = useState<BacktestResult | null>(null);
 
   if (!token) return (
-    <div className="t-card pf-empty">AUTH_REQUIRED — Please sign in to use backtesting.</div>
+    <div className="t-card pf-empty">Sign in to use the strategy backtester.</div>
   );
 
   const run = async (e: React.FormEvent) => {
@@ -66,30 +69,30 @@ const Backtest: React.FC = () => {
   };
 
   const stats = result ? [
-    { label: 'TOTAL_RETURN',    value: `${result.total_return_pct >= 0 ? '+' : ''}${result.total_return_pct.toFixed(1)}%`,  color: result.total_return_pct >= 0 ? 't-green' : 't-red' },
-    { label: 'BUY_HOLD_RETURN', value: `${result.buy_hold_return_pct >= 0 ? '+' : ''}${result.buy_hold_return_pct.toFixed(1)}%`, color: result.buy_hold_return_pct >= 0 ? 't-green' : 't-red' },
-    { label: 'SHARPE_RATIO',    value: result.sharpe_ratio.toFixed(2), color: result.sharpe_ratio >= 1 ? 't-green' : result.sharpe_ratio >= 0 ? 't-yellow' : 't-red' },
-    { label: 'MAX_DRAWDOWN',    value: `${result.max_drawdown_pct.toFixed(1)}%`, color: 't-red' },
-    { label: 'WIN_RATE',        value: `${result.win_rate.toFixed(1)}%`, color: result.win_rate >= 50 ? 't-green' : 't-red' },
-    { label: 'TOTAL_TRADES',    value: String(result.total_trades), color: '' },
-    { label: 'FINAL_VALUE',     value: `$${result.final_value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: '' },
-    { label: 'INITIAL_CAPITAL', value: `$${result.initial_capital.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: 't-muted2' },
+    { label: 'Total return',    value: `${result.total_return_pct >= 0 ? '+' : ''}${result.total_return_pct.toFixed(1)}%`,  color: result.total_return_pct >= 0 ? 't-green' : 't-red' },
+    { label: 'Buy & hold', value: `${result.buy_hold_return_pct >= 0 ? '+' : ''}${result.buy_hold_return_pct.toFixed(1)}%`, color: result.buy_hold_return_pct >= 0 ? 't-green' : 't-red' },
+    { label: 'Sharpe ratio',    value: result.sharpe_ratio.toFixed(2), color: result.sharpe_ratio >= 1 ? 't-green' : result.sharpe_ratio >= 0 ? 't-yellow' : 't-red' },
+    { label: 'Max drawdown',    value: `${result.max_drawdown_pct.toFixed(1)}%`, color: 't-red' },
+    { label: 'Win rate',        value: `${result.win_rate.toFixed(1)}%`, color: result.win_rate >= 50 ? 't-green' : 't-red' },
+    { label: 'Total trades',    value: String(result.total_trades), color: '' },
+    { label: 'Final value',     value: `$${result.final_value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: '' },
+    { label: 'Initial capital', value: `$${result.initial_capital.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: 't-muted2' },
   ] : [];
 
   return (
     <div>
       <div className="t-page-header">
-        <span className="t-section-title t-mb-0">STRATEGY_BACKTESTER</span>
-        <span className="t-page-meta">HISTORICAL_SIMULATION</span>
+        <span className="t-section-title t-mb-0">Strategy backtester</span>
+        <span className="t-page-meta">Historical simulation</span>
       </div>
 
       <div className="bt-body">
         {/* Config form */}
         <form className="bt-form" onSubmit={run}>
-          <div className="t-card-label al-form-title">PARAMETERS</div>
+          <div className="t-card-label al-form-title">Parameters</div>
 
           <div className="al-form-row">
-            <label className="t-label">TICKER</label>
+            <label className="t-label">Ticker</label>
             <input
               type="text"
               className="t-input"
@@ -101,7 +104,7 @@ const Backtest: React.FC = () => {
           </div>
 
           <div className="al-form-row">
-            <label className="t-label">PERIOD</label>
+            <label className="t-label">Period</label>
             <div className="bt-period-group">
               {PERIODS.map(p => (
                 <button
@@ -117,7 +120,7 @@ const Backtest: React.FC = () => {
           </div>
 
           <div className="al-form-row">
-            <label className="t-label">STRATEGY</label>
+            <label className="t-label">Strategy</label>
             {STRATEGIES.map(s => (
               <button
                 key={s.id}
@@ -137,8 +140,8 @@ const Backtest: React.FC = () => {
 
           <button type="submit" className="t-btn t-btn-accent al-submit" disabled={loading}>
             {loading
-              ? <><Loader2 size={11} className="t-spin" /> RUNNING...</>
-              : <><FlaskConical size={11} /> RUN_BACKTEST</>
+              ? <><Loader2 size={11} className="t-spin" /> Running…</>
+              : <><FlaskConical size={11} /> Run backtest</>
             }
           </button>
         </form>
@@ -169,19 +172,19 @@ const Backtest: React.FC = () => {
                     <AreaChart data={result.equity_curve}>
                       <defs>
                         <linearGradient id="btGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#10B981" stopOpacity={0.18} />
-                          <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                          <stop offset="5%"  stopColor={chart.gain} stopOpacity={0.2} />
+                          <stop offset="95%" stopColor={chart.gain} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1E2328" />
-                      <XAxis dataKey="date" tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} tickFormatter={d => d.slice(0, 7)} interval="preserveStartEnd" />
-                      <YAxis tick={{ fill: '#6B7280', fontSize: 10, fontFamily: 'JetBrains Mono' }} tickFormatter={fmtK} domain={['auto', 'auto']} width={50} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                      <XAxis dataKey="date" tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} tickFormatter={d => d.slice(0, 7)} interval="preserveStartEnd" />
+                      <YAxis tick={{ fill: chart.tickFill, fontSize: 11, fontFamily: chart.fontMono }} tickFormatter={fmtK} domain={['auto', 'auto']} width={50} />
                       <Tooltip
-                        contentStyle={{ background: '#0D1117', border: '1px solid #1E2328', fontFamily: 'JetBrains Mono', fontSize: 11 }}
-                        formatter={(v: number) => [`$${v.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 'VALUE']}
+                        contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}`, fontFamily: chart.fontMono, fontSize: 12, borderRadius: 8 }}
+                        formatter={chartTooltipUsd}
                       />
-                      <ReferenceLine y={result.initial_capital} stroke="#2A2E33" strokeDasharray="4 4" />
-                      <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={1.5} fill="url(#btGrad)" dot={false} />
+                      <ReferenceLine y={result.initial_capital} stroke={chart.grid} strokeDasharray="4 4" />
+                      <Area type="monotone" dataKey="value" stroke={chart.gain} strokeWidth={2} fill="url(#btGrad)" dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -191,26 +194,26 @@ const Backtest: React.FC = () => {
               {result.trades.length > 0 && (
                 <>
                   <div className="th-filter-bar">
-                    <span className="t-card-label t-mb-0">TRADE_LOG ({result.trades.length})</span>
+                    <span className="t-card-label t-mb-0">Trade log ({result.trades.length})</span>
                   </div>
                   <table className="t-table">
                     <thead>
                       <tr>
-                        <th>DATE</th>
-                        <th>ACTION</th>
-                        <th>SHARES</th>
-                        <th>PRICE</th>
-                        <th>VALUE</th>
+                        <th>Date</th>
+                        <th>Action</th>
+                        <th>Shares</th>
+                        <th>Price</th>
+                        <th>Value</th>
                       </tr>
                     </thead>
                     <tbody>
                       {result.trades.map((t, i) => (
                         <tr key={i}>
                           <td className="t-muted2">{t.date}</td>
-                          <td className={t.action === 'BUY' ? 't-green t-fw7' : 't-red t-fw7'}>{t.action}</td>
+                          <td className={t.action === 'BUY' ? 't-green t-fw7' : 't-red t-fw7'}>{t.action === 'BUY' ? 'Buy' : 'Sell'}</td>
                           <td>{t.shares}</td>
-                          <td>${t.price.toFixed(2)}</td>
-                          <td>${t.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                          <td className="t-num">{formatPrice(t.price)}</td>
+                          <td className="t-num">{formatPrice(t.value)}</td>
                         </tr>
                       ))}
                     </tbody>

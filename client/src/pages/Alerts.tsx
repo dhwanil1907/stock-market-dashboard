@@ -65,7 +65,7 @@ const Alerts: React.FC = () => {
       setAlerts(prev => [res.data, ...prev]);
       setTicker('');
       setTargetPrice('');
-      toast.success(`ALERT_CREATED — ${t}`);
+      toast.success(`Alert created for ${t}`);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to create alert');
     } finally {
@@ -92,7 +92,7 @@ const Alerts: React.FC = () => {
   };
 
   if (!token) return (
-    <div className="t-card pf-empty">AUTH_REQUIRED — Please sign in to manage alerts.</div>
+    <div className="t-card pf-empty">Sign in to manage price alerts.</div>
   );
 
   const active    = alerts.filter(a => !a.triggered);
@@ -100,18 +100,15 @@ const Alerts: React.FC = () => {
 
   return (
     <div>
-      <div className="t-page-header">
-        <span className="t-section-title t-mb-0">PRICE_ALERTS</span>
-        <span className="t-page-meta">POLLING EVERY 30S</span>
-      </div>
+      <p className="wl-page-meta">Price targets · checks every 30s</p>
 
       <div className="al-body">
         {/* Create form */}
         <form className="al-form" onSubmit={handleCreate}>
-          <div className="t-card-label al-form-title">NEW_ALERT</div>
+          <div className="t-card-label al-form-title">New alert</div>
 
           <div className="al-form-row">
-            <label className="t-label">TICKER</label>
+            <label className="t-label">Ticker</label>
             <input
               type="text"
               className="t-input"
@@ -123,19 +120,19 @@ const Alerts: React.FC = () => {
           </div>
 
           <div className="al-form-row">
-            <label className="t-label">CONDITION</label>
+            <label className="t-label">Condition</label>
             <select
               className="t-select"
               value={condition}
               onChange={e => setCondition(e.target.value as 'above' | 'below')}
             >
-              <option value="above">PRICE RISES ABOVE</option>
-              <option value="below">PRICE FALLS BELOW</option>
+              <option value="above">Price rises above</option>
+              <option value="below">Price falls below</option>
             </select>
           </div>
 
           <div className="al-form-row">
-            <label className="t-label">TARGET_PRICE ($)</label>
+            <label className="t-label">Target price ($)</label>
             <input
               type="number"
               className="t-input"
@@ -150,8 +147,8 @@ const Alerts: React.FC = () => {
 
           <button type="submit" className="t-btn t-btn-accent al-submit" disabled={creating}>
             {creating
-              ? <><Loader2 size={11} className="t-spin" /> CREATING...</>
-              : <><Plus size={11} /> CREATE_ALERT</>
+              ? <><Loader2 size={11} className="t-spin" /> Creating…</>
+              : <><Plus size={11} /> Create alert</>
             }
           </button>
         </form>
@@ -161,37 +158,37 @@ const Alerts: React.FC = () => {
           {loading ? (
             <div className="pf-empty"><Loader2 size={18} className="t-spin t-green" /></div>
           ) : alerts.length === 0 ? (
-            <div className="pf-empty t-muted2">NO_ALERTS — Create one to get notified.</div>
+            <div className="pf-empty t-muted2">No alerts yet — create one to get notified.</div>
           ) : (
             <>
               {/* Triggered */}
               {triggered.length > 0 && (
                 <div>
                   <div className="th-filter-bar">
-                    <span className="t-card-label t-mb-0 t-green">▲ TRIGGERED ({triggered.length})</span>
+                    <span className="t-card-label t-mb-0 t-green">Triggered ({triggered.length})</span>
                   </div>
                   <table className="t-table">
                     <thead>
                       <tr>
-                        <th>TICKER</th>
-                        <th>CONDITION</th>
-                        <th>TARGET</th>
-                        <th>TRIGGERED_AT</th>
-                        <th>ACTION</th>
+                        <th>Ticker</th>
+                        <th>Condition</th>
+                        <th>Target</th>
+                        <th>Triggered at</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {triggered.map(a => (
                         <tr key={a.id}>
                           <td className="t-green t-fw7">{a.ticker}</td>
-                          <td className="t-muted2">{a.condition.toUpperCase()}</td>
+                          <td className="t-muted2">{a.condition === 'above' ? 'Above' : 'Below'}</td>
                           <td>${a.target_price.toFixed(2)}</td>
                           <td className="t-muted2">
                             {a.triggered_at ? format(new Date(a.triggered_at), 'MMM d, h:mm a') : '—'}
                           </td>
                           <td>
                             <button type="button" className="t-btn t-btn-ghost t-btn-icon" onClick={() => handleDismiss(a.id)}>
-                              DISMISS
+                              Dismiss
                             </button>
                           </td>
                         </tr>
@@ -205,23 +202,23 @@ const Alerts: React.FC = () => {
               {active.length > 0 && (
                 <div>
                   <div className="th-filter-bar">
-                    <span className="t-card-label t-mb-0">ACTIVE ({active.length})</span>
+                    <span className="t-card-label t-mb-0">Active ({active.length})</span>
                   </div>
                   <table className="t-table">
                     <thead>
                       <tr>
-                        <th>TICKER</th>
-                        <th>CONDITION</th>
-                        <th>TARGET</th>
-                        <th>CREATED</th>
-                        <th>ACTION</th>
+                        <th>Ticker</th>
+                        <th>Condition</th>
+                        <th>Target</th>
+                        <th>Created</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {active.map(a => (
                         <tr key={a.id}>
                           <td className="t-green t-fw7">{a.ticker}</td>
-                          <td className="t-muted2">{a.condition.toUpperCase()}</td>
+                          <td className="t-muted2">{a.condition === 'above' ? 'Above' : 'Below'}</td>
                           <td>${a.target_price.toFixed(2)}</td>
                           <td className="t-muted2">{format(new Date(a.created_at), 'MMM d')}</td>
                           <td>

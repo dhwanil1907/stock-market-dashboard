@@ -17,10 +17,10 @@ const TRENDING = ['AAPL', 'TSLA', 'NVDA', 'AMD', 'MSFT', 'AMZN', 'META', 'GOOGL'
 const relTime = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}M AGO`;
+  if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}H AGO`;
-  return `${Math.floor(hrs / 24)}D AGO`;
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 };
 
 function badgeFromTitle(title: string): string {
@@ -28,7 +28,7 @@ function badgeFromTitle(title: string): string {
   for (const t of TRENDING) {
     if (upper.includes(t)) return t;
   }
-  return 'MKT';
+  return 'Mkt';
 }
 
 const Intel: React.FC = () => {
@@ -67,12 +67,7 @@ const Intel: React.FC = () => {
 
   return (
     <div>
-      <div className="intel-page">
-        <h1 className="t-page-hero-title">INTEL</h1>
-        <p className="intel-page-sub">
-          AGGREGATED SENTIMENT ANALYSIS &amp; REAL-TIME GLOBAL NEWS FEED
-        </p>
-      </div>
+      <p className="intel-page-meta">Headlines and sentiment from major feeds · refreshes every 5 min</p>
 
       <div className="intel-layout">
         <div className="intel-main">
@@ -81,18 +76,18 @@ const Intel: React.FC = () => {
             <input
               type="text"
               className="t-input"
-              placeholder="FILTER BY TICKER OR KEYWORD"
+              placeholder="Filter by ticker or keyword…"
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
             <button type="button" className="t-btn t-btn-ghost" onClick={() => fetchNews(true)} disabled={refreshing}>
               <RefreshCw size={12} className={refreshing ? 't-spin' : ''} />
-              REFRESH
+              Refresh
             </button>
           </div>
 
           <div className="intel-trending-row">
-            <span className="intel-trending-label">TRENDING:</span>
+            <span className="intel-trending-label">Trending</span>
             {TRENDING.map(sym => (
               <button
                 key={sym}
@@ -110,13 +105,13 @@ const Intel: React.FC = () => {
               <Loader2 size={18} className="t-spin t-green" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="pf-empty t-muted2">NO_INTEL_MATCHING_FILTERS</div>
+            <div className="pf-empty t-muted2">No stories match your filters.</div>
           ) : (
             filtered.map((item, i) => (
               <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="intel-card">
                 <div className="intel-card-meta">
                   <span className="t-muted2">
-                    {item.source?.toUpperCase() ?? 'FEED'} • {item.pubDate ? relTime(item.pubDate) : ''}
+                    {item.source ?? 'Feed'} · {item.pubDate ? relTime(item.pubDate) : ''}
                   </span>
                   <span className="intel-card-badge">{badgeFromTitle(item.title)}</span>
                 </div>
@@ -124,52 +119,43 @@ const Intel: React.FC = () => {
                 {item.summary && (
                   <p className="intel-card-summary">{item.summary.slice(0, 160)}{item.summary.length > 160 ? '…' : ''}</p>
                 )}
-                <span className="intel-card-cta">READ MORE →</span>
+                <span className="intel-card-cta">Read more →</span>
               </a>
             ))
           )}
 
-          {!loading && filtered.length > 0 && (
-            <div className="pf-empty t-muted2" style={{ borderTop: '1px solid var(--t-border)' }}>
-              <span className="t-green" style={{ marginRight: 8 }}>■ ▓ ░</span>
-              FETCHING MARKET INTEL…
-            </div>
-          )}
         </div>
 
         <aside className="intel-widgets">
           <div className="intel-widget">
-            <div className="intel-widget-title">MARKET_SENTIMENT_INDEX</div>
+            <div className="intel-widget-title ui-section-label">Market sentiment (demo)</div>
             <div className="intel-sentiment-big">78</div>
-            <div className="intel-sentiment-lbl">EXTREME_GREED</div>
+            <div className="intel-sentiment-lbl">Extreme greed</div>
             <div className="intel-meter">
               <div className="intel-meter-fill" style={{ width: '78%' }} />
             </div>
-            <p className="t-muted2" style={{ fontSize: 9, letterSpacing: '0.08em', lineHeight: 1.6, margin: 0 }}>
-              RISK APPETITE ELEVATED — ROTATION INTO GROWTH NAMES. MONITOR YIELDS.
+            <p className="t-muted2" style={{ fontSize: 'var(--text-caption)', lineHeight: 1.6, margin: 0 }}>
+              Risk appetite elevated — rotation into growth names. Monitor yields.
             </p>
           </div>
 
           <div className="intel-widget">
             <div className="intel-widget-title intel-widget-title--row">
               <Sparkles size={12} aria-hidden />
-              SAGE_ADVISORY
+              Sage advisory
             </div>
             <blockquote className="intel-quote">
-              SENTIMENT CAN DECOUPLE FROM FUNDAMENTAL PE RATIOS IN LATE CYCLE. WATCH REAL RATES AND THE 10Y.
+              Sentiment can decouple from fundamental P/E ratios in late cycle. Watch real rates and the 10Y.
             </blockquote>
-            <p className="t-muted2" style={{ fontSize: 8, letterSpacing: '0.12em', margin: '12px 0 0' }}>
-              SYSTEM_RECOGNITION: ALPHA_VERIFIED
-            </p>
           </div>
 
           <div className="intel-widget" style={{ minHeight: 120, opacity: 0.45 }}>
-            <div className="intel-widget-title">CHART_PREVIEW</div>
-            <svg viewBox="0 0 200 60" width="100%" height="60" preserveAspectRatio="none">
+            <div className="intel-widget-title ui-section-label">Trending symbols</div>
+            <svg viewBox="0 0 200 60" width="100%" height="60" preserveAspectRatio="none" aria-hidden>
               <path
                 d="M0,45 Q40,40 80,30 T160,15 L200,10"
                 fill="none"
-                stroke="#10b981"
+                stroke="var(--color-gain)"
                 strokeWidth="1"
                 opacity="0.6"
               />

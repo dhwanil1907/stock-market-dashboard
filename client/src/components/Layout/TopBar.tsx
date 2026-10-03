@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, HelpCircle, Bell } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Search, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useThemeStore } from '../../stores/themeStore';
+import { formatCash } from '../../lib/format';
+import { pageTitleForPath } from '../../lib/routeTitles';
 import api from '../../lib/api';
-
-function formatCash(v: number) {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-  return `$${v.toFixed(2)}`;
-}
 
 const TopBar: React.FC = () => {
   const { user } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ symbol: string; name?: string }[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+
+  const pageTitle = pageTitleForPath(location.pathname);
 
   useEffect(() => {
     if (query.length < 2) {
@@ -48,22 +49,23 @@ const TopBar: React.FC = () => {
   };
 
   const initials = user?.email
-    ? user.email
-      .split('@')[0]
-      .slice(0, 2)
-      .toUpperCase()
+    ? user.email.split('@')[0].slice(0, 2).toUpperCase()
     : '—';
 
   return (
     <header className="t-topbar">
-      <div className="t-topbar-left" aria-hidden="true" />
+      <div className="t-topbar-left">
+        <h1 className="t-topbar-page">{pageTitle}</h1>
+      </div>
 
       <div className="t-topbar-right">
-        <div style={{ position: 'relative' }} ref={ref}>
+        <div className="t-topbar-search-wrap" ref={ref}>
           <div className="t-topbar-search">
-            <Search size={12} color="var(--t-muted2)" />
+            <Search size={14} strokeWidth={1.75} aria-hidden />
             <input
-              placeholder="SEARCH_MARKETS..."
+              type="search"
+              aria-label="Search markets"
+              placeholder="Search markets…"
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -86,18 +88,18 @@ const TopBar: React.FC = () => {
           )}
         </div>
 
-        <div className="t-topbar-icons">
-          <button type="button" className="t-icon-btn" aria-label="Help">
-            <HelpCircle size={17} strokeWidth={1.5} />
-          </button>
-          <button type="button" className="t-icon-btn" aria-label="Notifications">
-            <Bell size={17} strokeWidth={1.5} />
-          </button>
-        </div>
+        <button
+          type="button"
+          className="t-icon-btn"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}
+        </button>
 
         {user && (
           <div className="t-user-info">
-            <div className="t-user-email">{user.email.split('@')[0].toUpperCase()}</div>
+            <div className="t-user-email">{user.email.split('@')[0]}</div>
             <div className="t-user-cash">{formatCash(user.cash_balance ?? 0)}</div>
           </div>
         )}

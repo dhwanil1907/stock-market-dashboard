@@ -14,7 +14,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="t-main">
         <TopBar />
         <main className="t-content">
-          {children ?? <Outlet />}
+          <div className="t-content-inner">
+            {children ?? <Outlet />}
+          </div>
         </main>
       </div>
     </div>

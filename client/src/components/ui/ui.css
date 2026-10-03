@@ -1,0 +1,121 @@
+.ui-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-4) var(--space-5);
+}
+
+.ui-stat-label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-caption);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.ui-stat-value {
+  font-size: var(--text-kpi);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-kpi);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.ui-stat-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-2);
+}
+
+.ui-change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  line-height: var(--leading-caption);
+}
+
+.ui-change--gain {
+  color: var(--color-gain);
+  background: var(--color-gain-muted);
+}
+
+.ui-change--loss {
+  color: var(--color-loss);
+  background: var(--color-loss-muted);
+}
+
+.ui-change--flat {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-elevated);
+}
+
+.ui-data-table-wrap {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.ui-data-table-wrap .t-table th {
+  background: var(--color-surface-elevated);
+}
+
+.ui-section-label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3);
+}
+
+.ui-stat-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.pf-pl-pct {
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  margin-left: var(--space-1);
+}
+
+.ui-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ui-brand--center {
+  align-items: center;
+  text-align: center;
+}
+
+.ui-brand-name {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--color-accent);
+  margin: 0;
+  line-height: var(--leading-section);
+}
+
+.ui-brand-tagline {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-caption);
+}

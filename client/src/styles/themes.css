@@ -1,0 +1,106 @@
+/* Semantic colors — Warm Graphite Desk (dark primary); light for toggle */
+
+html.dark,
+:root {
+  color-scheme: dark;
+
+  --color-bg: #0e0d0c;
+  --color-surface: #161514;
+  --color-surface-elevated: #1c1b19;
+  --color-border: #2a2826;
+  --color-border-strong: #3a3734;
+  --color-text: #edeae6;
+  --color-text-secondary: #9a9590;
+  --color-accent: #9eb4ce;
+  --color-accent-muted: rgba(158, 180, 206, 0.16);
+  --color-accent-strong: rgba(158, 180, 206, 0.28);
+  --color-gain: #34d399;
+  --color-gain-muted: rgba(52, 211, 153, 0.14);
+  --color-loss: #f87171;
+  --color-loss-muted: rgba(248, 113, 113, 0.14);
+  --color-warning: #fbbf24;
+  --color-on-accent: #141210;
+  --color-on-danger: #ffffff;
+  --color-overlay: rgba(10, 9, 8, 0.78);
+  --color-neutral-muted: rgba(154, 149, 144, 0.12);
+  --heatmap-gain-3: #166534;
+  --heatmap-gain-2: #15803d;
+  --heatmap-gain-1: #14532d;
+  --heatmap-gain-0: #052e16;
+  --heatmap-gain-text: #86efac;
+  --heatmap-gain-text-bright: #4ade80;
+  --heatmap-loss-0: #450a0a;
+  --heatmap-loss-1: #7f1d1d;
+  --heatmap-loss-2: #991b1b;
+  --heatmap-loss-3: #dc2626;
+  --heatmap-loss-text: #fca5a5;
+
+  --t-bg: var(--color-bg);
+  --t-surface: var(--color-surface);
+  --t-surface2: var(--color-surface-elevated);
+  --t-border: var(--color-border);
+  --t-border2: var(--color-border-strong);
+  --t-text: var(--color-text);
+  --t-muted: var(--color-text-secondary);
+  --t-muted2: #7a756f;
+  --t-accent: var(--color-accent);
+  --t-accent-bright: #b8c9dc;
+  --t-accent-10: var(--color-accent-muted);
+  --t-accent-20: var(--color-accent-strong);
+  --t-green: var(--color-gain);
+  --t-red: var(--color-loss);
+  --t-red-10: var(--color-loss-muted);
+  --t-yellow: var(--color-warning);
+}
+
+html.light {
+  color-scheme: light;
+
+  --color-bg: #f4f2ef;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ebe8e4;
+  --color-border: #d8d4ce;
+  --color-border-strong: #c4beb6;
+  --color-text: #141210;
+  --color-text-secondary: #5c574f;
+  --color-accent: #4d647a;
+  --color-accent-muted: rgba(77, 100, 122, 0.12);
+  --color-accent-strong: rgba(77, 100, 122, 0.2);
+  --color-gain: #047857;
+  --color-gain-muted: rgba(4, 120, 87, 0.12);
+  --color-loss: #dc2626;
+  --color-loss-muted: rgba(220, 38, 38, 0.1);
+  --color-warning: #d97706;
+  --color-on-accent: #ffffff;
+  --color-on-danger: #ffffff;
+  --color-overlay: rgba(20, 18, 16, 0.45);
+  --color-neutral-muted: rgba(92, 87, 79, 0.1);
+  --heatmap-gain-3: #047857;
+  --heatmap-gain-2: #059669;
+  --heatmap-gain-1: #10b981;
+  --heatmap-gain-0: #d1fae5;
+  --heatmap-gain-text: #065f46;
+  --heatmap-gain-text-bright: #047857;
+  --heatmap-loss-0: #fef2f2;
+  --heatmap-loss-1: #fecaca;
+  --heatmap-loss-2: #f87171;
+  --heatmap-loss-3: #dc2626;
+  --heatmap-loss-text: #991b1b;
+
+  --t-bg: var(--color-bg);
+  --t-surface: var(--color-surface);
+  --t-surface2: var(--color-surface-elevated);
+  --t-border: var(--color-border);
+  --t-border2: var(--color-border-strong);
+  --t-text: var(--color-text);
+  --t-muted: var(--color-text-secondary);
+  --t-muted2: #6b6560;
+  --t-accent: var(--color-accent);
+  --t-accent-bright: #3d5266;
+  --t-accent-10: var(--color-accent-muted);
+  --t-accent-20: var(--color-accent-strong);
+  --t-green: var(--color-gain);
+  --t-red: var(--color-loss);
+  --t-red-10: var(--color-loss-muted);
+  --t-yellow: var(--color-warning);
+}

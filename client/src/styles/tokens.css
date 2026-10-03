@@ -1,0 +1,43 @@
+/* Spacing, typography, radius — theme-agnostic */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --radius-modal: 12px;
+  --radius-pill: 999px;
+
+  --font-sans: 'Source Sans 3', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-section: 16px;
+  --text-page: 24px;
+  --text-kpi: 32px;
+
+  --leading-caption: 1.35;
+  --leading-body: 1.5;
+  --leading-section: 1.35;
+  --leading-page: 1.25;
+  --leading-kpi: 1.15;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --t-sidebar: 220px;
+  --t-topbar: 56px;
+
+  --t-mono: var(--font-mono);
+  --t-sans: var(--font-sans);
+  --t-brand: var(--font-sans);
+}

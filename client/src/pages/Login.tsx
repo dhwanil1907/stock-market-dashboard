@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sun, Moon } from 'lucide-react';
 import api from '../lib/api';
+import { useThemeStore } from '../stores/themeStore';
 import './login.css';
+import { Brand } from '../components/ui/Brand';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +17,7 @@ const Login: React.FC = () => {
   const [isRegister, setIsRegister] = useState(false);
 
   const setAuth = useAuthStore(state => state.setAuth);
+  const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +29,7 @@ const Login: React.FC = () => {
       const res = await api.post(endpoint, { email, password });
       if (isRegister) {
         setIsRegister(false);
-        toast.success('ACCOUNT_CREATED — Please authenticate.');
+        toast.success('Account created. Sign in to continue.');
       } else {
         setAuth(res.data.user, res.data.token);
         navigate('/dashboard');
@@ -35,7 +38,7 @@ const Login: React.FC = () => {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
         : undefined;
-      setError(msg || 'AUTH_FAILED — Check credentials.');
+      setError(msg || 'Sign in failed. Check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -47,13 +50,13 @@ const Login: React.FC = () => {
     try {
       const res = await api.post('/auth/demo');
       setAuth(res.data.user, res.data.token);
-      toast.success('DEMO_SESSION_INITIALIZED');
+      toast.success('Demo session started');
       navigate('/dashboard');
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
         : undefined;
-      setError(msg || 'DEMO_INIT_FAILED — Is the server running?');
+      setError(msg || 'Could not start demo. Is the server running?');
     } finally {
       setDemoLoading(false);
     }
@@ -61,11 +64,20 @@ const Login: React.FC = () => {
 
   return (
     <div className="login-root">
+      <div className="login-topbar">
+        <button
+          type="button"
+          className="login-theme-btn"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+      </div>
+
       <div className="login-shell">
         <div className="login-card">
-          <div className="login-brand">
-            <h1 className="login-title">STOCKSAGE</h1>
-          </div>
+          <Brand titleAs="h1" tagline className="ui-brand--center login-brand" />
 
           <div className="login-tabs" role="tablist">
             <button
@@ -88,7 +100,7 @@ const Login: React.FC = () => {
             </button>
           </div>
 
-          {error && <div className="login-error">✗ {error}</div>}
+          {error && <div className="login-error">{error}</div>}
 
           <form onSubmit={handleSubmit}>
             <div className="login-field">
@@ -110,7 +122,7 @@ const Login: React.FC = () => {
                 <label className="login-label login-label--inline" htmlFor="login-pass">Password</label>
                 {!isRegister && (
                   <button type="button" className="login-forgot" onClick={() => toast('Contact support to reset access.')}>
-                    Forgot?
+                    Forgot password?
                   </button>
                 )}
               </div>
@@ -132,9 +144,7 @@ const Login: React.FC = () => {
                   {isRegister ? 'Creating account…' : 'Signing in…'}
                 </>
               ) : (
-                <>
-                  {isRegister ? 'Create account →' : 'Sign in →'}
-                </>
+                isRegister ? 'Create account' : 'Sign in'
               )}
             </button>
           </form>

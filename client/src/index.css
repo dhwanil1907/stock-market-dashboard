@@ -1,4 +1,7 @@
+@import './styles/tokens.css';
+@import './styles/themes.css';
 @import './styles/terminal.css';
+@import './components/ui/ui.css';
 
 @tailwind base;
 @tailwind components;
